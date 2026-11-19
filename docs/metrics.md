@@ -96,10 +96,12 @@ Ollama may return these fields. InferBench preserves them beside the client cloc
 | Field | What it is | Clock |
 |---|---|---|
 | `prompt_eval_count` | Server-reported prompt token count | Not a clock |
-| `prompt_eval_duration` | Server-reported prompt evaluation duration | Server-reported |
+| `prompt_eval_duration` | Server-reported prompt evaluation duration, in nanoseconds | Server-reported |
 | `eval_count` | Server-reported output token count | Not a clock |
-| `eval_duration` | Server-reported generation duration | Server-reported |
+| `eval_duration` | Server-reported generation duration, in nanoseconds | Server-reported |
 
-`prompt_eval_duration` is not client-observed TTFT. `eval_duration` is not client-observed end-to-end latency, and it is not automatically the client-observed decode duration. Their raw unit is recorded when Day 2 reads the live API. Day 1 does not assume that unit.
+`prompt_eval_duration` and `eval_duration` are raw nanoseconds. The Ollama 0.40.16 API description says all durations are returned in nanoseconds, and it names both of these fields in nanoseconds. One live `POST /api/generate` final metadata object returned both fields as integers. That call was a connection check. Its timing is not recorded in this file.
+
+`prompt_eval_duration` is not client-observed TTFT. `eval_duration` is not client-observed end-to-end latency, and it is not automatically the client-observed decode duration. The adapter stores the integers and does not convert them.
 
 `eval_count` may supply the output-token count used in TPOT and generation throughput. Using that count does not turn those metrics into server-reported clocks. The durations in those formulas remain client-observed.

@@ -35,15 +35,9 @@ Ollama is already installed. These notes are planning-time facts, not fresh meas
 - About 806 MB.
 - Supports completion.
 
-## What Day 2 must re-check
+## Live check
 
-Day 2 must read live metadata from Ollama and verify these planning-time facts:
-
-- Both models are still present: `qwen3.5:2b` and `gemma3:1b`.
-- Parameter count, quantization, and size for each model.
-- Whether thinking is still on by default for `qwen3.5:2b`.
-
-Until that check, these figures stay planning-time facts. Do not treat them as measured InferBench results.
+Day 2 read live Ollama metadata and compared it with the planning-time facts above. The raw fields and the mark for each item are in `docs/model-check.md`. No fact in this file was contradicted, so the figures above stay as planning-time facts. They are still not measured InferBench results. A live size or quantization label is metadata, not a speed.
 
 ## Which experiment is forbidden
 
