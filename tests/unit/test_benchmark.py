@@ -1,10 +1,13 @@
-"""Sequential benchmark tests. The adapter is a fake.
+"""Benchmark tests. The adapter is a fake.
 
 Ollama is not contacted. Clock values and duration integers are fixtures.
 No test asserts a latency number from a live server.
 """
 
 from __future__ import annotations
+
+import asyncio
+import contextlib
 
 import pytest
 
@@ -92,6 +95,79 @@ class FakeAdapter(InferenceAdapter):
         raise AssertionError("the sequential runner must not stream")
 
 
+class GatedAdapter(FakeAdapter):
+    """Blocks measured generate calls until the test opens the gate.
+
+    Warm-up yields once so overlapping warm-up calls would be visible, then
+    returns. The gate starts closed.
+    """
+
+    def __init__(self, *, warmup_count: int, fail_measured: int | None = None) -> None:
+        super().__init__()
+        self.warmup_count = warmup_count
+        self.fail_measured = fail_measured
+        self.measured_calls = 0
+        self.warmup_now = 0
+        self.max_warmup = 0
+        self.measured_now = 0
+        self.max_measured = 0
+        self.release = asyncio.Event()
+
+    async def generate(
+        self,
+        model: str,
+        prompt: str,
+        options: GenerateOptions | None = None,
+    ) -> GenerateResult:
+        self.generate_calls += 1
+        if self.generate_calls <= self.warmup_count:
+            self.warmup_now += 1
+            self.max_warmup = max(self.max_warmup, self.warmup_now)
+            try:
+                await asyncio.sleep(0)
+            finally:
+                self.warmup_now -= 1
+            return GenerateResult(text="ok", metadata=dict(METADATA))
+
+        self.measured_calls += 1
+        this_measured = self.measured_calls
+        self.measured_now += 1
+        self.max_measured = max(self.max_measured, self.measured_now)
+        try:
+            await self.release.wait()
+            if this_measured == self.fail_measured:
+                raise OllamaTimeoutError("Ollama request timed out")
+            return GenerateResult(text="ok", metadata=dict(METADATA))
+        finally:
+            self.measured_now -= 1
+
+
+class CancelAdapter(FakeAdapter):
+    """Parks measured generate calls and sets the cancel signal once two are in flight."""
+
+    def __init__(self, *, warmup_count: int, cancel_event: asyncio.Event) -> None:
+        super().__init__()
+        self.warmup_count = warmup_count
+        self.cancel_event = cancel_event
+        self.measured_calls = 0
+        self._park = asyncio.Event()
+
+    async def generate(
+        self,
+        model: str,
+        prompt: str,
+        options: GenerateOptions | None = None,
+    ) -> GenerateResult:
+        self.generate_calls += 1
+        if self.generate_calls <= self.warmup_count:
+            return GenerateResult(text="ok", metadata=dict(METADATA))
+        self.measured_calls += 1
+        if self.measured_calls >= 2:
+            self.cancel_event.set()
+        await self._park.wait()
+        return GenerateResult(text="ok", metadata=dict(METADATA))
+
+
 def _runner(adapter: FakeAdapter) -> BenchmarkRunner:
     return BenchmarkRunner(adapter, clock=FakeClock())
 
@@ -136,8 +212,10 @@ async def test_end_to_end_duration_is_the_fake_clock_difference() -> None:
         "Hi",
         warmup_count=2,
         measured_count=3,
+        concurrency=1,
     )
 
+    assert run.concurrency == 1
     for row in run.measured:
         clock_difference_ms = (row.client_end - row.client_start) * 1000.0
         assert row.end_to_end_ms == clock_difference_ms
@@ -193,6 +271,115 @@ async def test_failed_generate_is_recorded_once() -> None:
     assert row.error_type == "OllamaTimeoutError"
     assert row.eval_count is None
     assert row.eval_duration is None
+
+
+async def _wait_for_two_measured(adapter: GatedAdapter, task: asyncio.Task[object]) -> None:
+    for _ in range(1000):
+        if adapter.measured_now >= 2 or task.done():
+            break
+        await asyncio.sleep(0)
+    else:
+        pytest.fail("measured calls did not reach the cap")
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_measured_cap_of_two_limits_in_flight_calls() -> None:
+    adapter = GatedAdapter(warmup_count=2)
+    runner = BenchmarkRunner(adapter)
+    task = asyncio.create_task(
+        runner.run(
+            "gemma3:1b",
+            "Hi",
+            num_predict=8,
+            warmup_count=2,
+            measured_count=4,
+            concurrency=2,
+        )
+    )
+    try:
+        await _wait_for_two_measured(adapter, task)
+        assert adapter.measured_now == 2
+        assert adapter.max_measured == 2
+        assert adapter.max_warmup == 1
+        adapter.release.set()
+        run = await asyncio.wait_for(task, timeout=2)
+    finally:
+        if not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    assert run.concurrency == 2
+    assert len(run.warmup) == 2
+    assert {row.phase for row in run.warmup} == {"warmup"}
+    assert len(run.measured) == 4
+    assert all(row.phase == "measured" for row in run.measured)
+    assert all(row.success and row.error_type is None for row in run.measured)
+    assert adapter.max_measured == 2
+    assert adapter.generate_calls == 6
+
+
+@pytest.mark.asyncio
+async def test_cancel_signal_records_each_started_attempt_once() -> None:
+    cancel_event = asyncio.Event()
+    adapter = CancelAdapter(warmup_count=2, cancel_event=cancel_event)
+    run = await asyncio.wait_for(
+        BenchmarkRunner(adapter).run(
+            "gemma3:1b",
+            "Hi",
+            warmup_count=2,
+            measured_count=4,
+            concurrency=2,
+            cancel_event=cancel_event,
+        ),
+        timeout=2,
+    )
+
+    assert adapter.measured_calls == 2
+    assert len(run.measured) == 2
+    assert len(run.warmup) == 2
+    assert all(row.phase == "warmup" and row.success for row in run.warmup)
+    assert [row.error_type for row in run.measured] == ["CancelledError", "CancelledError"]
+    assert all(row.success is False for row in run.measured)
+    assert all(row.eval_count is None and row.eval_duration is None for row in run.measured)
+    assert adapter.generate_calls == 4
+    assert run.concurrency == 2
+
+
+@pytest.mark.asyncio
+async def test_failed_generate_does_not_cancel_other_measured_calls() -> None:
+    adapter = GatedAdapter(warmup_count=1, fail_measured=1)
+    runner = BenchmarkRunner(adapter)
+    task = asyncio.create_task(
+        runner.run(
+            "gemma3:1b",
+            "Hi",
+            warmup_count=1,
+            measured_count=4,
+            concurrency=2,
+        )
+    )
+    try:
+        await _wait_for_two_measured(adapter, task)
+        assert adapter.measured_now == 2
+        adapter.release.set()
+        run = await asyncio.wait_for(task, timeout=2)
+    finally:
+        if not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    assert adapter.generate_calls == 5
+    assert len(run.measured) == 4
+    assert [row.error_type for row in run.measured].count("OllamaTimeoutError") == 1
+    assert all(row.error_type != "CancelledError" for row in run.measured)
+    failed = [row for row in run.measured if row.error_type == "OllamaTimeoutError"]
+    assert failed[0].success is False
+    assert failed[0].eval_count is None
+    assert failed[0].eval_duration is None
+    assert sum(row.success for row in run.measured) == 3
 
 
 def test_runner_and_adapter_expose_no_percentile_ttft_or_tpot_helper() -> None:

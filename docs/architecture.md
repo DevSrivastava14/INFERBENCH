@@ -43,7 +43,7 @@ These rules keep later days from mixing clocks and owners.
 
 A streaming response shows the split. The inference adapter reads the HTTP stream, records the client timestamp of the first generated content, and stores provider fields such as `eval_count` on the request record. The metrics module then computes TTFT, TPOT, and the percentiles from those records. The adapter does not publish P95. The metrics module does not open an HTTP connection.
 
-`app/benchmark/` owns this recording: warm-up, repetitions, and one request row per sequential call. It still does not own percentile math.
+`app/benchmark/` owns concurrency and cancellation for this run: warm-up one call at a time, a measured concurrency cap, cancellation of in-flight measured calls, and one request row per started call. It still does not own percentile math, and it still does not set the five execution states.
 
 ## Execution states
 

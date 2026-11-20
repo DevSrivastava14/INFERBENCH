@@ -1,13 +1,18 @@
-"""Sequential benchmark runner.
+"""Benchmark runner.
 
 Checks that the model is available, then calls non-streaming generate once
-per warm-up and once per measured repetition. Each call is timed around the
-await with the benchmark process clock. A failed call is recorded and is not
-retried. This module does not compute TTFT, TPOT, throughput, or percentiles.
+per warm-up and once per measured repetition. Warm-up is one call at a time.
+The measured phase limits in-flight generate calls with a semaphore. The
+default cap is 1. A cancel signal stops new measured launches, cancels
+in-flight generate calls, and records each started attempt once. A failed
+call is recorded and is not retried. This module does not compute TTFT,
+TPOT, throughput, or percentiles.
 """
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import time
 from collections.abc import Callable
 from typing import Any
@@ -18,10 +23,11 @@ from app.inference.base import GenerateOptions, InferenceAdapter
 
 
 class BenchmarkRunner:
-    """Warm-up, then measured repetitions, one call at a time.
+    """Warm-up one call at a time, then a capped measured phase.
 
     ``clock`` returns seconds, the same unit as ``time.perf_counter``. The
-    default is that process clock.
+    default is that process clock. ``concurrency`` limits measured generate
+    calls only. ``cancel_event`` is an explicit signal the caller can set.
     """
 
     def __init__(
@@ -41,39 +47,160 @@ class BenchmarkRunner:
         num_predict: int | None = None,
         warmup_count: int = 2,
         measured_count: int = 3,
+        concurrency: int = 1,
+        cancel_event: asyncio.Event | None = None,
     ) -> BenchmarkRun:
-        """Run the sequential procedure and return the two row groups.
+        """Run warm-up, then the measured phase, and return both row groups.
 
-        Defaults are 2 warm-up calls and 3 measured calls. ``show_model`` runs
-        first. If the model is missing, that call raises and ``generate`` is
-        not used.
+        Defaults are 2 warm-up calls, 3 measured calls, and measured
+        concurrency 1. ``show_model`` runs first. If the model is missing,
+        that call raises and ``generate`` is not used. Warm-up does not use
+        the cap and does not overlap.
         """
         if warmup_count < 0:
             raise ValueError("warmup_count must be zero or greater")
         if measured_count < 0:
             raise ValueError("measured_count must be zero or greater")
+        if concurrency < 1:
+            raise ValueError("concurrency must be 1 or greater")
 
         await self._adapter.show_model(model)
         options = None if num_predict is None else GenerateOptions(num_predict=num_predict)
         warmup: list[RequestRecord] = []
         for _ in range(warmup_count):
-            warmup.append(await self._one("warmup", model, prompt, num_predict, options))
-        measured: list[RequestRecord] = []
-        for _ in range(measured_count):
-            measured.append(await self._one("measured", model, prompt, num_predict, options))
-        return BenchmarkRun(warmup=tuple(warmup), measured=tuple(measured))
+            warmup.append(
+                await self._timed(
+                    "warmup",
+                    model,
+                    prompt,
+                    num_predict,
+                    options,
+                    record_cancellation=False,
+                )
+            )
+        measured = await self._measured_phase(
+            model,
+            prompt,
+            num_predict,
+            options,
+            measured_count,
+            concurrency,
+            cancel_event,
+        )
+        return BenchmarkRun(
+            warmup=tuple(warmup),
+            measured=measured,
+            concurrency=concurrency,
+        )
 
-    async def _one(
+    async def _measured_phase(
+        self,
+        model: str,
+        prompt: str,
+        num_predict: int | None,
+        options: GenerateOptions | None,
+        measured_count: int,
+        concurrency: int,
+        cancel_event: asyncio.Event | None,
+    ) -> tuple[RequestRecord, ...]:
+        """Limit in-flight measured generate calls. Do not retry."""
+        semaphore = asyncio.Semaphore(concurrency)
+        tasks: list[asyncio.Task[RequestRecord | None]] = []
+
+        def _release(_task: asyncio.Task[RequestRecord | None]) -> None:
+            semaphore.release()
+
+        watcher: asyncio.Task[None] | None = None
+        if cancel_event is not None:
+            watcher = asyncio.create_task(self._watch_cancel(cancel_event, tasks))
+        try:
+            for _ in range(measured_count):
+                if cancel_event is not None and cancel_event.is_set():
+                    break
+                await semaphore.acquire()
+                if cancel_event is not None and cancel_event.is_set():
+                    semaphore.release()
+                    break
+                task = asyncio.create_task(
+                    self._measured_call(model, prompt, num_predict, options, cancel_event)
+                )
+                task.add_done_callback(_release)
+                tasks.append(task)
+            finished = await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            if watcher is not None:
+                watcher.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await watcher
+
+        rows: list[RequestRecord] = []
+        for item in finished:
+            if item is None or isinstance(item, asyncio.CancelledError):
+                continue
+            if isinstance(item, BaseException):
+                raise item
+            rows.append(item)
+        return tuple(rows)
+
+    async def _watch_cancel(
+        self,
+        cancel_event: asyncio.Event,
+        tasks: list[asyncio.Task[RequestRecord | None]],
+    ) -> None:
+        """When the caller sets the signal, cancel measured calls in flight."""
+        await cancel_event.wait()
+        for task in tasks:
+            task.cancel()
+
+    async def _measured_call(
+        self,
+        model: str,
+        prompt: str,
+        num_predict: int | None,
+        options: GenerateOptions | None,
+        cancel_event: asyncio.Event | None,
+    ) -> RequestRecord | None:
+        """One measured slot. A call that has not started generate is no row."""
+        if cancel_event is not None and cancel_event.is_set():
+            return None
+        return await self._timed(
+            "measured",
+            model,
+            prompt,
+            num_predict,
+            options,
+            record_cancellation=True,
+        )
+
+    async def _timed(
         self,
         phase: Phase,
         model: str,
         prompt: str,
         num_predict: int | None,
         options: GenerateOptions | None,
+        *,
+        record_cancellation: bool,
     ) -> RequestRecord:
+        """Time one generate call. End-to-end duration is client end minus start."""
         start = self._clock()
         try:
             result = await self._adapter.generate(model, prompt, options)
+        except asyncio.CancelledError:
+            if not record_cancellation:
+                raise
+            end = self._clock()
+            return _record(
+                phase,
+                model,
+                prompt,
+                num_predict,
+                start,
+                end,
+                success=False,
+                error_type="CancelledError",
+                metadata=None,
+            )
         except OllamaError as exc:
             end = self._clock()
             return _record(

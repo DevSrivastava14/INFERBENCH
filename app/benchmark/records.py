@@ -42,7 +42,10 @@ class BenchmarkRun:
     """Warm-up rows and measured rows, kept apart.
 
     Warm-up rows are stored on ``warmup`` and are not part of ``measured``.
+    ``concurrency`` is the measured-phase cap the caller requested. Warm-up
+    does not use that cap.
     """
 
     warmup: tuple[RequestRecord, ...]
     measured: tuple[RequestRecord, ...]
+    concurrency: int = 1
