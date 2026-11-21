@@ -1,5 +1,9 @@
 ## 2026-11-12 — Day 1: LLM Inference Fundamentals
 
+### Five-line summary
+
+Day 1 is LLM inference fundamentals, and no application code is in scope. `PROGRESS.md` is empty, so nothing from an earlier day needs to be fixed first. The goal is to lock metric formulas, module owners, and the CPU-only model rules before Ollama is connected. `LEARN.md` teaches prefill, decode, tokens, the KV cache, quantization, TTFT, and TPOT with examples marked as illustrations. The day is done when the three docs and the written self-check exist; pytest starts on a later day.
+
 ### Completed
 
 - Wrote the metric sheet: formula, unit, and clock label for TTFT, TPOT, end-to-end latency, generation throughput, request throughput, P50/P95/P99, and error rate. HTTP chunks are not tokens. `prompt_eval_duration` and `eval_duration` stay in their own fields.
@@ -29,6 +33,10 @@ Notes that are not open problems: `docs/environment.md` does not include the pla
 Day 2: connect to Ollama, discover the local models, and verify the planning-time model facts against live metadata. Do not treat those facts as measurements until that check. Do not download models for that check.
 
 ## 2026-11-19 — Day 2: Ollama Integration
+
+### Five-line summary
+
+Day 2 is Ollama integration: an async adapter for discovery, one streaming generate, and one non-streaming generate. Nothing from Day 1 failed, so the first work is the live model-fact check and the server duration unit that Day 1 left open. The adapter returns text and raw provider metadata and does not calculate TTFT, TPOT, or percentiles. FastAPI, the benchmark runner, and any reported latency stay out of today. The day is done when mocked pytest passes and the live check file records what Ollama actually returned, including any mismatch.
 
 ### Completed
 
@@ -69,6 +77,10 @@ Day 3: benchmark methodology. Build a basic benchmark that can execute and recor
 
 ## 2026-11-21 — Day 3: Benchmark Methodology
 
+### Five-line summary
+
+Day 3 is benchmark methodology: a sequential runner that warms up, repeats, and records one row per request. Nothing from earlier days failed, so there is no fix-first work. Rows store client start, client end, end-to-end duration, and provider token counts, and they leave server durations in their own fields. Percentile ranking, TTFT, TPOT, concurrency, and the database wait for later days. The day is done when mocked pytest passes and warm-up rows stay out of the measured set.
+
 ### Completed
 
 - Wrote `docs/methodology.md` from the plan's experiment procedure. The starting policy is 2–3 warm-up requests, then 3–5 measured repetitions. Prototype defaults are 2 warm-up calls, 3 measured calls, one prompt, and one sequential call. Warm-up rows are stored and excluded from the measured set. The note names hardware, engine version, CPU and RAM samples, and the database as Day 7 fields and does not collect them. It does not calculate TTFT, TPOT, generation throughput, request throughput, error rate, or P50, P95, and P99, and it does not choose a percentile ranking algorithm.
@@ -101,6 +113,10 @@ Day 4: configurable concurrent workload execution. Keep percentile ranking, TTFT
 
 ## 2026-11-21 — Day 4: Async Python and Concurrency
 
+### Five-line summary
+
+Day 4 is configurable concurrent workload execution: warm-up stays one call at a time, and the measured phase takes a concurrency cap that defaults to 1. Nothing from earlier days failed, so there is no fix-first work. A cancelled run stops new calls, cancels calls already in flight, and records each of those attempts once without a retry. Percentile ranking, TTFT, TPOT, throughput, and the database stay on later days. The day is done when mocked pytest passes and the measured phase never exceeds the cap.
+
 ### Completed
 
 - Updated `docs/methodology.md` so procedure step 6 is a configurable concurrent measured phase. Warm-up stays one call at a time and stays out of the measured set. The prototype default remains concurrency 1. The caller may set a higher measured cap, and the run stores that setting. A cancelled measured attempt is recorded once with `error_type` `CancelledError`, with no retry and no row for a call that never started. An Ollama failure still records that adapter error and does not cancel the other measured calls. The note does not calculate TTFT, TPOT, generation throughput, request throughput, error rate, or P50, P95, and P99, and it does not choose a percentile ranking algorithm. Hardware, engine version, CPU and RAM samples, and the database stay Day 7 fields and are not collected.
@@ -131,6 +147,10 @@ Notes that are not open problems: `app/benchmark/__init__.py` still says the pac
 Day 5: streaming and request-level latency. First-content timing, TTFT, and TPOT stay on that day. Percentile ranking, throughput, and the database stay on their later days. Do not treat a Day 4 fake-clock duration, or a timing from these mocked tests, as a benchmark result.
 
 ## 2026-11-21 — Day 5: Streaming and Latency Measurement
+
+### Five-line summary
+
+Day 5 is streaming and request-level latency: the benchmark path reads a stream and stamps the first non-empty content on the runner's clock. Nothing from earlier days failed, so there is no fix-first work. Completion stays client end minus client start, and TTFT, decode duration, and TPOT come from the stored row using the Day 1 formulas. TPOT stays undefined below two output tokens. Percentile ranking, throughput, and the database stay on later days, and the day is done when mocked pytest passes on fixture clocks.
 
 ### Completed
 
@@ -173,6 +193,10 @@ Day 6: percentile ranking, average and median, generation throughput, request th
 
 ## 2026-11-21 — Day 6: Statistics and Throughput
 
+### Five-line summary
+
+Day 6 is statistics and throughput: the metrics engine ranks stored measured rows and computes average, median, both throughputs, and error rate. Nothing from earlier days failed, so there is no fix-first work. Percentiles use nearest-rank on successful end-to-end latencies, and warm-up stays out of every aggregate. Generation throughput divides provider output tokens by client decode time, while request throughput divides completed requests by the measured window. CPU, RAM, and the database stay on Day 7, and the day is done when mocked pytest passes on constructed rows.
+
 ### Completed
 
 - Updated `docs/methodology.md` so procedure step 10 is pure functions on the stored measured rows. Warm-up stays out of every aggregate. The runner stays as Day 5 left it. The latency sample is successful measured end-to-end duration. Average is the arithmetic mean. Median is the ordinary middle, so an even count can differ from nearest-rank P50. P50, P95, and P99 use nearest-rank: sort ascending, rank `ceil(percent * n / 100)`, 1-based, clamped to the sample, and the result is an observed latency. Generation throughput sums `eval_count` and sums client decode duration. Request throughput divides completed measured requests by the latest measured `client_end` minus the earliest measured `client_start`. A cancelled row is outside the error rate. Steps 1, 2, 8, 9, 11, and 12 still wait. Hardware, engine version, CPU and RAM samples, and the database stay Day 7 fields and are not collected. This day does not compare a run with a baseline.
@@ -209,6 +233,10 @@ Notes that are not open problems: no test shows a `CancelledError` row setting t
 Day 7: CPU and RAM sampling, process resource tracking, SQLite, and configuration snapshots. Do not treat a Day 6 fixture duration, or a timing from these mocked tests, as a benchmark result.
 
 ## 2026-11-22 — Day 7: Resource Monitoring and Persistence
+
+### Five-line summary
+
+Day 7 is resource monitoring and persistence: sample CPU and RAM during a run, and store the snapshot, rows, samples, and summary in SQLite. Nothing from earlier days failed, so there is no fix-first work. Monitoring owns the samples, metrics stays on stored request clocks, and the database stores without recomputing. Process RSS is the benchmark process, system RAM is the machine, and samples are not latency. Repeating experiments, baseline comparison, and the five execution states stay later, and the day is done when mocked pytest passes.
 
 ### Completed
 
