@@ -57,9 +57,9 @@ This is the full wait the client saw. It includes everything around the model ca
 
 Decode duration in this formula is the same client-observed interval used for TPOT, converted from milliseconds to seconds so the unit is tokens per second.
 
-The output-token count comes from provider metadata or a compatible tokenizer. Chunk count is not the numerator.
+The output-token count comes from provider metadata or a compatible tokenizer. Chunk count is not the numerator. `eval_duration` is not the denominator.
 
-Generation throughput is unimplemented.
+`app/metrics/throughput.py` computes generation throughput for one stored run. It sums `eval_count` and sums client decode duration from `decode_duration_ms` in `app/metrics/latency.py`, then divides. A measured row joins both sums only when it succeeded, decode duration is present and positive, and `eval_count` is present. One output token still counts. Warm-up rows stay out. A failed row stays out, including a failed row that still carries a first-content stamp. No qualifying row leaves the aggregate unset. Summed decode time can exceed the wall-clock window when calls overlap.
 
 ## Request throughput
 
@@ -69,9 +69,9 @@ Generation throughput is unimplemented.
 | Unit | requests per second |
 | Clock | Client-observed |
 
-Measurement duration is the client-observed length of the measured window, in seconds. Failed requests are not completed requests, so they stay out of the numerator. They still count in the error rate.
+Measurement duration is the client-observed length of the measured window, in seconds. That window is the latest measured `client_end` minus the earliest measured `client_start`. Failed and cancelled rows stay out of the numerator. Their timestamps still set the window when they are the extremes. Warm-up timestamps stay out of that pair. Completed means the measured row succeeded. No measured rows, or a window of zero, leaves request throughput unset. Zero completed requests over a positive window is 0.
 
-Request throughput is unimplemented.
+`app/metrics/throughput.py` computes request throughput for one stored run.
 
 ## P50, P95, and P99 latency
 
@@ -81,9 +81,13 @@ Request throughput is unimplemented.
 | Unit | milliseconds, the same unit as the latency sample |
 | Clock | Client-observed |
 
-The latency sample is end-to-end latency unless a later experiment explicitly names another client-observed latency. An average can hide a slow tail. These three percentiles keep that tail visible.
+The latency sample is end-to-end latency on measured rows that succeeded, unless a later experiment explicitly names another client-observed latency. Warm-up rows, failed rows, and cancelled rows stay out, even when they carry a duration. An empty successful sample leaves all three percentiles unset. An average can hide a slow tail. These three percentiles keep that tail visible.
 
-Day 1 records the definition only. It does not choose a percentile ranking algorithm. That choice belongs to the metrics engine on a later day. Percentile ranking is unimplemented.
+Average is the arithmetic mean of that same sample. Median is the middle value when the count is odd, and the mean of the two middle values when the count is even. An empty successful sample leaves average and median unset.
+
+P50, P95, and P99 use nearest-rank. Sort the sample ascending. Rank is `ceil(percent * n / 100)`, 1-based, clamped to `1..n`. The result is an observed latency. Median uses the ordinary middle, so an even count can differ from nearest-rank P50.
+
+`app/metrics/statistics.py` computes average, median, P50, P95, and P99 for one stored run.
 
 ## Error rate
 
@@ -95,7 +99,9 @@ Day 1 records the definition only. It does not choose a percentile ranking algor
 
 Total requests includes failed requests. A run with no requests has no error rate.
 
-Error rate is unimplemented.
+For one stored run, the population is the measured requests that were not cancelled. Failed means `success` is false and `error_type` is not `CancelledError`. A cancelled row is outside the error rate: it is not a failure and it is not in the denominator. All cancelled, or no measured rows, leaves the rate unset. Zero failures on a non-empty population is 0. Warm-up rows stay out.
+
+`app/metrics/statistics.py` computes error rate for one stored run.
 
 ## Server-reported fields that stay separate
 

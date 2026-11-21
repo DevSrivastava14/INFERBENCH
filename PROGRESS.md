@@ -170,3 +170,40 @@ Notes that are not open problems: no test passes a successful row with no stamp 
 ### Next steps
 
 Day 6: percentile ranking, average and median, generation throughput, request throughput, error rate, and aggregate statistics. CPU and RAM sampling and the database stay on Day 7. Do not treat the Day 5 teaching clocks, or a timing from these mocked tests, as a benchmark result.
+
+## 2026-11-21 — Day 6: Statistics and Throughput
+
+### Completed
+
+- Updated `docs/methodology.md` so procedure step 10 is pure functions on the stored measured rows. Warm-up stays out of every aggregate. The runner stays as Day 5 left it. The latency sample is successful measured end-to-end duration. Average is the arithmetic mean. Median is the ordinary middle, so an even count can differ from nearest-rank P50. P50, P95, and P99 use nearest-rank: sort ascending, rank `ceil(percent * n / 100)`, 1-based, clamped to the sample, and the result is an observed latency. Generation throughput sums `eval_count` and sums client decode duration. Request throughput divides completed measured requests by the latest measured `client_end` minus the earliest measured `client_start`. A cancelled row is outside the error rate. Steps 1, 2, 8, 9, 11, and 12 still wait. Hardware, engine version, CPU and RAM samples, and the database stay Day 7 fields and are not collected. This day does not compare a run with a baseline.
+- Pointed `docs/architecture.md` at `app/metrics/statistics.py` for average, median, P50, P95, P99, and error rate, and at `app/metrics/throughput.py` for generation throughput and request throughput. `app/benchmark/` still stores the rows, still does not own percentile math, still does not import metrics, and still does not set the five execution states.
+- Recorded nearest-rank, the even-count median, the rows that join each throughput sum, and the cancellation rule in `docs/metrics.md`. The existing formula tables stay. "Unimplemented" is removed from average, median, the three percentiles, both throughputs, and error rate.
+- Added `app/metrics/statistics.py`. `average_ms`, `median_ms`, and `percentile_ms` read successful measured `end_to_end_ms` only. `error_rate` keeps `CancelledError` out of both counts. An empty population returns no value. Zero failures returns 0. `AggregateSummary` holds the five latency fields, `error_rate`, and both throughput fields. `summarize` fills that object from one `BenchmarkRun`. The functions do not take an adapter and do not open a connection.
+- Added `app/metrics/throughput.py`. `generation_throughput_tps` calls `decode_duration_ms` and does not use `eval_duration`. A row joins both sums only when it succeeded, decode duration is present and positive, and `eval_count` is present. One output token still counts. A failed row stays out, including one that still carries a first-content stamp. `request_throughput_rps` divides completed measured requests by the measured window. Failed and cancelled timestamps still set that window. Warm-up timestamps stay out. A window that is not positive leaves request throughput unset. Zero completed requests over a positive window returns 0. `app/metrics/__init__.py` names these aggregates and still says the package does not call Ollama. `app/benchmark/runner.py` and `app/inference/ollama.py` were not changed.
+
+### Files changed
+
+- `docs/methodology.md` (updated)
+- `docs/architecture.md` (updated)
+- `docs/metrics.md` (updated)
+- `app/metrics/__init__.py` (updated)
+- `app/metrics/statistics.py` (added)
+- `app/metrics/throughput.py` (added)
+- `tests/unit/test_statistics.py` (added)
+- `tests/unit/test_throughput.py` (added)
+
+### Test results
+
+`python -m pytest`: 42 passed in 0.31s. Nineteen tests are new, and the existing 23 still pass. The run uses constructed rows and the existing mocks. It does not contact Ollama. No test asserts a latency number from a live server. The figures 492, 120, 2000, 7.5, and 0.4 are fixtures, not a live result.
+
+### Problems
+
+None left open.
+
+One new test failed on the first suite run. `test_failed_row_with_stamp_stays_out_of_the_latency_sample` expected nearest-rank P50 of 100 and 110 ms to be 105. That 105 is the median. Nearest-rank P50 of those two values is 100. Average and median had already shown the failed row was out of the sample. The fixture was changed to three successes, 100, 110, and 120 ms, beside the failed row, so average, median, and P50 are all 110 only when that row stays out. The second run passed. The final run passed all 42.
+
+Notes that are not open problems: no test shows a `CancelledError` row setting the request-throughput window. No test shows generation throughput unset when no measured row qualifies. No test shows a measured set of only adapter failures leaving the five latency fields unset. The percentile formula cell in `docs/metrics.md` still says "P50 is the middle," and the paragraph under it names nearest-rank. A negative measured window is treated as unset, the same as a window of zero. Day 2, Day 3, Day 4, and Day 5 notes were left as notes.
+
+### Next steps
+
+Day 7: CPU and RAM sampling, process resource tracking, SQLite, and configuration snapshots. Do not treat a Day 6 fixture duration, or a timing from these mocked tests, as a benchmark result.

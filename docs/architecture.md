@@ -43,9 +43,11 @@ These rules keep later days from mixing clocks and owners.
 
 A streaming response shows the split. The inference adapter reads the HTTP stream. The stream result carries `first_content_at`, the stamp of the first non-empty `response`. The adapter does not name that stamp TTFT, and it does not compute TPOT, throughput, or a percentile.
 
-`app/metrics/` computes TTFT, decode duration, and TPOT for one stored row. It does not call Ollama. It does not rank P50, P95, or P99.
+`app/metrics/latency.py` computes TTFT, decode duration, and TPOT for one stored row. It does not call Ollama.
 
-`app/benchmark/` stores the row, including the stamp. It still owns warm-up one call at a time, a measured concurrency cap, cancellation of in-flight measured calls, and one request row per started call. It still does not own percentile math, and it still does not set the five execution states. The metrics module does not open an HTTP connection.
+`app/metrics/statistics.py` computes average, median, P50, P95, P99, and error rate from one stored run. `app/metrics/throughput.py` computes generation throughput and request throughput from that same run. The metrics package does not call Ollama.
+
+`app/benchmark/` stores the rows, including the stamp. It still owns warm-up one call at a time, a measured concurrency cap, cancellation of in-flight measured calls, and one request row per started call. It still does not own percentile math, and it still does not import metrics. It still does not set the five execution states. The metrics module does not open an HTTP connection.
 
 ## Execution states
 

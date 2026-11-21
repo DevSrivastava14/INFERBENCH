@@ -1,5 +1,8 @@
-"""Request-level TTFT, decode duration, and TPOT for one stored row.
+"""Latency for one stored row, and aggregates for one stored run.
 
-This package does not call Ollama. It does not calculate generation
-throughput, request throughput, error rate, or a percentile.
+TTFT, decode duration, and TPOT read one row. Average, median, P50, P95,
+P99, and error rate read the measured rows of one run. Generation throughput
+and request throughput read that same run.
+
+This package does not call Ollama.
 """
