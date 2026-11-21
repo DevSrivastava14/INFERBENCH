@@ -51,13 +51,24 @@ class FakeClock:
         return current
 
 
+def _stream_result(clock) -> StreamGenerateResult:
+    """One successful fake stream. The stamp is one read of the runner's clock."""
+    return StreamGenerateResult(
+        text="ok",
+        metadata=dict(METADATA),
+        chunk_count=FIXTURE_CHUNK_COUNT,
+        first_content_at=clock(),
+    )
+
+
 class FakeAdapter(InferenceAdapter):
     """In-memory adapter. It never opens a socket."""
 
     def __init__(self, *, missing: bool = False, fail: bool = False) -> None:
         self.missing = missing
         self.fail = fail
-        self.generate_calls = 0
+        self.stream_calls = 0
+        self.non_streaming_calls = 0
         self.show_calls = 0
 
     async def list_models(self) -> list[ModelInfo]:
@@ -81,22 +92,25 @@ class FakeAdapter(InferenceAdapter):
         prompt: str,
         options: GenerateOptions | None = None,
     ) -> GenerateResult:
-        self.generate_calls += 1
-        if self.fail:
-            raise OllamaTimeoutError("Ollama request timed out")
-        return GenerateResult(text="ok", metadata=dict(METADATA))
+        self.non_streaming_calls += 1
+        raise AssertionError("the runner must not call non-streaming generate")
 
     async def generate_stream(
         self,
         model: str,
         prompt: str,
         options: GenerateOptions | None = None,
+        *,
+        clock,
     ) -> StreamGenerateResult:
-        raise AssertionError("the sequential runner must not stream")
+        self.stream_calls += 1
+        if self.fail:
+            raise OllamaTimeoutError("Ollama request timed out")
+        return _stream_result(clock)
 
 
 class GatedAdapter(FakeAdapter):
-    """Blocks measured generate calls until the test opens the gate.
+    """Blocks measured stream calls until the test opens the gate.
 
     Warm-up yields once so overlapping warm-up calls would be visible, then
     returns. The gate starts closed.
@@ -113,21 +127,23 @@ class GatedAdapter(FakeAdapter):
         self.max_measured = 0
         self.release = asyncio.Event()
 
-    async def generate(
+    async def generate_stream(
         self,
         model: str,
         prompt: str,
         options: GenerateOptions | None = None,
-    ) -> GenerateResult:
-        self.generate_calls += 1
-        if self.generate_calls <= self.warmup_count:
+        *,
+        clock,
+    ) -> StreamGenerateResult:
+        self.stream_calls += 1
+        if self.stream_calls <= self.warmup_count:
             self.warmup_now += 1
             self.max_warmup = max(self.max_warmup, self.warmup_now)
             try:
                 await asyncio.sleep(0)
             finally:
                 self.warmup_now -= 1
-            return GenerateResult(text="ok", metadata=dict(METADATA))
+            return _stream_result(clock)
 
         self.measured_calls += 1
         this_measured = self.measured_calls
@@ -137,13 +153,13 @@ class GatedAdapter(FakeAdapter):
             await self.release.wait()
             if this_measured == self.fail_measured:
                 raise OllamaTimeoutError("Ollama request timed out")
-            return GenerateResult(text="ok", metadata=dict(METADATA))
+            return _stream_result(clock)
         finally:
             self.measured_now -= 1
 
 
 class CancelAdapter(FakeAdapter):
-    """Parks measured generate calls and sets the cancel signal once two are in flight."""
+    """Parks measured stream calls and sets the cancel signal once two are in flight."""
 
     def __init__(self, *, warmup_count: int, cancel_event: asyncio.Event) -> None:
         super().__init__()
@@ -152,20 +168,22 @@ class CancelAdapter(FakeAdapter):
         self.measured_calls = 0
         self._park = asyncio.Event()
 
-    async def generate(
+    async def generate_stream(
         self,
         model: str,
         prompt: str,
         options: GenerateOptions | None = None,
-    ) -> GenerateResult:
-        self.generate_calls += 1
-        if self.generate_calls <= self.warmup_count:
-            return GenerateResult(text="ok", metadata=dict(METADATA))
+        *,
+        clock,
+    ) -> StreamGenerateResult:
+        self.stream_calls += 1
+        if self.stream_calls <= self.warmup_count:
+            return _stream_result(clock)
         self.measured_calls += 1
         if self.measured_calls >= 2:
             self.cancel_event.set()
         await self._park.wait()
-        return GenerateResult(text="ok", metadata=dict(METADATA))
+        return _stream_result(clock)
 
 
 def _runner(adapter: FakeAdapter) -> BenchmarkRunner:
@@ -174,7 +192,8 @@ def _runner(adapter: FakeAdapter) -> BenchmarkRunner:
 
 @pytest.mark.asyncio
 async def test_warmup_rows_are_excluded_from_measured() -> None:
-    run = await _runner(FakeAdapter()).run(
+    adapter = FakeAdapter()
+    run = await _runner(adapter).run(
         "gemma3:1b",
         "Hi",
         num_predict=8,
@@ -186,6 +205,7 @@ async def test_warmup_rows_are_excluded_from_measured() -> None:
     assert {row.phase for row in run.warmup} == {"warmup"}
     assert {row.phase for row in run.measured} == {"measured"}
     assert all(row.phase != "warmup" for row in run.measured)
+    assert adapter.non_streaming_calls == 0
 
 
 @pytest.mark.asyncio
@@ -197,8 +217,10 @@ async def test_measured_length_equals_repetition_count() -> None:
         num_predict=8,
         warmup_count=2,
         measured_count=measured_count,
+        concurrency=1,
     )
 
+    assert run.concurrency == 1
     assert len(run.measured) == measured_count
     assert run.measured[0].model == "gemma3:1b"
     assert run.measured[0].prompt == "Hi"
@@ -216,10 +238,13 @@ async def test_end_to_end_duration_is_the_fake_clock_difference() -> None:
     )
 
     assert run.concurrency == 1
-    for row in run.measured:
+    for row in (*run.warmup, *run.measured):
+        assert row.first_content_at is not None
+        assert row.first_content_at - row.client_start == CLOCK_STEP
+        assert row.client_end - row.first_content_at == CLOCK_STEP
+        assert row.client_end - row.client_start == 2 * CLOCK_STEP
         clock_difference_ms = (row.client_end - row.client_start) * 1000.0
         assert row.end_to_end_ms == clock_difference_ms
-        assert row.client_end - row.client_start == CLOCK_STEP
         assert row.eval_duration == FIXTURE_EVAL_DURATION
         assert isinstance(row.eval_duration, int)
         assert row.prompt_eval_duration == FIXTURE_PROMPT_EVAL_DURATION
@@ -243,7 +268,7 @@ async def test_eval_count_stays_apart_from_chunk_count() -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_model_causes_zero_generate_calls() -> None:
+async def test_missing_model_causes_zero_stream_calls() -> None:
     adapter = FakeAdapter(missing=True)
     runner = _runner(adapter)
 
@@ -251,11 +276,12 @@ async def test_missing_model_causes_zero_generate_calls() -> None:
         await runner.run("missing:model", "Hi", warmup_count=2, measured_count=3)
 
     assert adapter.show_calls == 1
-    assert adapter.generate_calls == 0
+    assert adapter.stream_calls == 0
+    assert adapter.non_streaming_calls == 0
 
 
 @pytest.mark.asyncio
-async def test_failed_generate_is_recorded_once() -> None:
+async def test_failed_stream_is_recorded_once() -> None:
     adapter = FakeAdapter(fail=True)
     run = await _runner(adapter).run(
         "gemma3:1b",
@@ -264,11 +290,13 @@ async def test_failed_generate_is_recorded_once() -> None:
         measured_count=1,
     )
 
-    assert adapter.generate_calls == 1
+    assert adapter.stream_calls == 1
+    assert adapter.non_streaming_calls == 0
     assert len(run.measured) == 1
     row = run.measured[0]
     assert row.success is False
     assert row.error_type == "OllamaTimeoutError"
+    assert row.first_content_at is None
     assert row.eval_count is None
     assert row.eval_duration is None
 
@@ -317,7 +345,8 @@ async def test_measured_cap_of_two_limits_in_flight_calls() -> None:
     assert all(row.phase == "measured" for row in run.measured)
     assert all(row.success and row.error_type is None for row in run.measured)
     assert adapter.max_measured == 2
-    assert adapter.generate_calls == 6
+    assert adapter.stream_calls == 6
+    assert adapter.non_streaming_calls == 0
 
 
 @pytest.mark.asyncio
@@ -343,12 +372,14 @@ async def test_cancel_signal_records_each_started_attempt_once() -> None:
     assert [row.error_type for row in run.measured] == ["CancelledError", "CancelledError"]
     assert all(row.success is False for row in run.measured)
     assert all(row.eval_count is None and row.eval_duration is None for row in run.measured)
-    assert adapter.generate_calls == 4
+    assert all(row.first_content_at is None for row in run.measured)
+    assert adapter.stream_calls == 4
+    assert adapter.non_streaming_calls == 0
     assert run.concurrency == 2
 
 
 @pytest.mark.asyncio
-async def test_failed_generate_does_not_cancel_other_measured_calls() -> None:
+async def test_failed_stream_does_not_cancel_other_measured_calls() -> None:
     adapter = GatedAdapter(warmup_count=1, fail_measured=1)
     runner = BenchmarkRunner(adapter)
     task = asyncio.create_task(
@@ -371,22 +402,36 @@ async def test_failed_generate_does_not_cancel_other_measured_calls() -> None:
             with contextlib.suppress(asyncio.CancelledError):
                 await task
 
-    assert adapter.generate_calls == 5
+    assert adapter.stream_calls == 5
+    assert adapter.non_streaming_calls == 0
     assert len(run.measured) == 4
     assert [row.error_type for row in run.measured].count("OllamaTimeoutError") == 1
     assert all(row.error_type != "CancelledError" for row in run.measured)
     failed = [row for row in run.measured if row.error_type == "OllamaTimeoutError"]
     assert failed[0].success is False
+    assert failed[0].first_content_at is None
     assert failed[0].eval_count is None
     assert failed[0].eval_duration is None
-    assert sum(row.success for row in run.measured) == 3
+    succeeded = [row for row in run.measured if row.success]
+    assert len(succeeded) == 3
+    assert all(row.first_content_at is not None for row in succeeded)
 
 
 def test_runner_and_adapter_expose_no_percentile_ttft_or_tpot_helper() -> None:
+    import app.benchmark.runner as runner_module
+    import app.inference.base as base_module
+    import app.inference.ollama as ollama_module
+    import app.metrics.latency as latency_module
+
     banned = ("percentile", "ttft", "tpot", "throughput")
     names = [name.lower() for name in dir(BenchmarkRunner)]
     names.extend(name.lower() for name in dir(OllamaAdapter))
     names.extend(name.lower() for name in dir(InferenceAdapter))
+    for module in (runner_module, ollama_module, base_module):
+        names.extend(name.lower() for name in dir(module))
     for name in names:
         for word in banned:
             assert word not in name
+    assert callable(latency_module.ttft_ms)
+    assert callable(latency_module.decode_duration_ms)
+    assert callable(latency_module.tpot_ms)

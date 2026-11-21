@@ -9,6 +9,7 @@ One attempt per call. No retries.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -70,11 +71,14 @@ class OllamaAdapter(InferenceAdapter):
         model: str,
         prompt: str,
         options: GenerateOptions | None = None,
+        *,
+        clock: Callable[[], float],
     ) -> StreamGenerateResult:
         payload = _generate_body(model, prompt, options, stream=True)
         parts: list[str] = []
         metadata: dict[str, Any] | None = None
         chunk_count = 0
+        first_content_at: float | None = None
         try:
             async with self._client() as client:
                 async with client.stream("POST", "/api/generate", json=payload) as response:
@@ -91,6 +95,8 @@ class OllamaAdapter(InferenceAdapter):
                         parts.append(piece)
                         metadata = obj
                         chunk_count += 1
+                        if piece != "" and first_content_at is None:
+                            first_content_at = clock()
         except httpx.TimeoutException as exc:
             raise OllamaTimeoutError("Ollama request timed out") from exc
         except httpx.NetworkError as exc:
@@ -104,6 +110,7 @@ class OllamaAdapter(InferenceAdapter):
             text="".join(parts),
             metadata=metadata,
             chunk_count=chunk_count,
+            first_content_at=first_content_at,
         )
 
     async def _request(

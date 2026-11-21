@@ -41,9 +41,11 @@ These rules keep later days from mixing clocks and owners.
 - The optimization module does not invent numbers. A recommendation needs a stored measurement.
 - The benchmark runner must not block the FastAPI event loop. That is a later requirement. Day 1 does not build the runner.
 
-A streaming response shows the split. The inference adapter reads the HTTP stream, records the client timestamp of the first generated content, and stores provider fields such as `eval_count` on the request record. The metrics module then computes TTFT, TPOT, and the percentiles from those records. The adapter does not publish P95. The metrics module does not open an HTTP connection.
+A streaming response shows the split. The inference adapter reads the HTTP stream. The stream result carries `first_content_at`, the stamp of the first non-empty `response`. The adapter does not name that stamp TTFT, and it does not compute TPOT, throughput, or a percentile.
 
-`app/benchmark/` owns concurrency and cancellation for this run: warm-up one call at a time, a measured concurrency cap, cancellation of in-flight measured calls, and one request row per started call. It still does not own percentile math, and it still does not set the five execution states.
+`app/metrics/` computes TTFT, decode duration, and TPOT for one stored row. It does not call Ollama. It does not rank P50, P95, or P99.
+
+`app/benchmark/` stores the row, including the stamp. It still owns warm-up one call at a time, a measured concurrency cap, cancellation of in-flight measured calls, and one request row per started call. It still does not own percentile math, and it still does not set the five execution states. The metrics module does not open an HTTP connection.
 
 ## Execution states
 

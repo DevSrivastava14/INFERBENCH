@@ -1,7 +1,7 @@
 """One row per benchmark request.
 
-Rows store the client clock and the raw provider fields. They do not store
-percentiles, TTFT, or TPOT.
+Rows store the client clock, the first-content stamp, and the raw provider
+fields. They do not store percentiles, TTFT, or TPOT.
 """
 
 from __future__ import annotations
@@ -17,9 +17,11 @@ class RequestRecord:
     """One warm-up or measured call.
 
     ``end_to_end_ms`` is client end minus client start, in milliseconds.
+    ``first_content_at`` is the runner's clock at the first non-empty
+    ``response``. It is unset on a failed or cancelled row. It is not TTFT.
     ``prompt_eval_duration`` and ``eval_duration`` are raw server nanoseconds.
     They are not copied into ``end_to_end_ms``. ``eval_count`` is the provider
-    output-token count, not an HTTP chunk count.
+    output-token count, not an HTTP chunk count. ``chunk_count`` is not a field.
     """
 
     phase: Phase
@@ -27,6 +29,7 @@ class RequestRecord:
     prompt: str
     num_predict: int | None
     client_start: float
+    first_content_at: float | None
     client_end: float
     end_to_end_ms: float
     success: bool

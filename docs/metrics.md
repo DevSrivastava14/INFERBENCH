@@ -19,6 +19,8 @@ HTTP stream chunks are not tokens. A chunk is a piece of the response body. It i
 
 TTFT is how long the client waits before the first generated content arrives. It is mostly a prefill story. Empty chunks and response headers are not generated content, so they do not start this clock.
 
+`app/metrics/latency.py` computes TTFT for one stored row.
+
 Server-reported prompt timing is a different measurement. It stays in its own field.
 
 ## Time per output token (TPOT)
@@ -29,11 +31,11 @@ Server-reported prompt timing is a different measurement. It stays in its own fi
 | Unit | milliseconds per token |
 | Clock | Client-observed duration. The token count is not a clock. |
 
-Decode duration is the client-observed time from the first generated content until the request finishes.
+Decode duration is the client-observed time from the first generated content until the request finishes. `app/metrics/latency.py` computes decode duration for one stored row.
 
 The output-token count comes from provider metadata or a compatible tokenizer. It does not come from the number of HTTP chunks. If that count is approximate, the TPOT value must be labeled an estimate.
 
-TPOT is undefined when the output-token count is less than 2, because the denominator would be zero. That request still keeps its TTFT and end-to-end latency.
+TPOT is undefined when the output-token count is less than 2, because the denominator would be zero. That request still keeps its TTFT and end-to-end latency. `app/metrics/latency.py` computes TPOT for one stored row.
 
 ## End-to-end latency
 
@@ -57,6 +59,8 @@ Decode duration in this formula is the same client-observed interval used for TP
 
 The output-token count comes from provider metadata or a compatible tokenizer. Chunk count is not the numerator.
 
+Generation throughput is unimplemented.
+
 ## Request throughput
 
 | | |
@@ -66,6 +70,8 @@ The output-token count comes from provider metadata or a compatible tokenizer. C
 | Clock | Client-observed |
 
 Measurement duration is the client-observed length of the measured window, in seconds. Failed requests are not completed requests, so they stay out of the numerator. They still count in the error rate.
+
+Request throughput is unimplemented.
 
 ## P50, P95, and P99 latency
 
@@ -77,7 +83,7 @@ Measurement duration is the client-observed length of the measured window, in se
 
 The latency sample is end-to-end latency unless a later experiment explicitly names another client-observed latency. An average can hide a slow tail. These three percentiles keep that tail visible.
 
-Day 1 records the definition only. It does not choose a percentile ranking algorithm. That choice belongs to the metrics engine on a later day.
+Day 1 records the definition only. It does not choose a percentile ranking algorithm. That choice belongs to the metrics engine on a later day. Percentile ranking is unimplemented.
 
 ## Error rate
 
@@ -88,6 +94,8 @@ Day 1 records the definition only. It does not choose a percentile ranking algor
 | Clock | Not a timing clock. Both counts are client-observed request outcomes. |
 
 Total requests includes failed requests. A run with no requests has no error rate.
+
+Error rate is unimplemented.
 
 ## Server-reported fields that stay separate
 

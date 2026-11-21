@@ -8,6 +8,7 @@ carry TTFT, TPOT, throughput, or percentiles.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -48,12 +49,15 @@ class StreamGenerateResult:
 
     ``text`` is the joined ``response`` pieces. ``metadata`` is the last
     provider object. ``chunk_count`` is the number of JSON lines. It is not
-    ``eval_count`` and it is not a token count.
+    ``eval_count`` and it is not a token count. ``first_content_at`` is the
+    runner's clock at the first non-empty ``response`` string. It is not
+    TTFT. This result does not carry TTFT, TPOT, throughput, or a percentile.
     """
 
     text: str
     metadata: dict[str, Any]
     chunk_count: int
+    first_content_at: float | None
 
 
 class InferenceAdapter(ABC):
@@ -82,5 +86,11 @@ class InferenceAdapter(ABC):
         model: str,
         prompt: str,
         options: GenerateOptions | None = None,
+        *,
+        clock: Callable[[], float],
     ) -> StreamGenerateResult:
-        """One streaming generate call, read to completion."""
+        """One streaming generate call, read to completion.
+
+        ``clock`` is the runner's clock. Call it when the first non-empty
+        ``response`` string is read. Do not call it for an empty piece.
+        """

@@ -129,3 +129,44 @@ Notes that are not open problems: `app/benchmark/__init__.py` still says the pac
 ### Next steps
 
 Day 5: streaming and request-level latency. First-content timing, TTFT, and TPOT stay on that day. Percentile ranking, throughput, and the database stay on their later days. Do not treat a Day 4 fake-clock duration, or a timing from these mocked tests, as a benchmark result.
+
+## 2026-11-21 — Day 5: Streaming and Latency Measurement
+
+### Completed
+
+- Updated `docs/methodology.md` so procedure steps 4 through 7 run by streaming. Warm-up stays one call at a time and stays out of the measured set. The prototype default remains concurrency 1. The caller may set a higher measured cap, and the run stores that setting. Cancellation stays as Day 4 wrote it. The first-content stamp is the first non-empty `response` string. An empty `response` does not start that clock. A blank line and the final done object do not start the stamp and do not replace it. The row stores the stamp. Request-level TTFT, decode duration, and TPOT use the Day 1 formulas. The output-token count is `eval_count`. TPOT is undefined below 2 output tokens, and that row still keeps TTFT and end-to-end latency when those two are defined. The note does not calculate generation throughput, request throughput, error rate, or P50, P95, and P99, and it does not choose a percentile ranking algorithm. Hardware, engine version, CPU and RAM samples, and the database stay Day 7 fields and are not collected.
+- Pointed `docs/architecture.md` at `first_content_at` on the stream result, at `app/metrics/` for TTFT, decode duration, and TPOT on one stored row, and at `app/benchmark/` for storing the row, including the stamp. The benchmark package still does not own percentile math, and it still does not set the five execution states.
+- Pointed TTFT, decode duration, and TPOT in `docs/metrics.md` at `app/metrics/latency.py`. The formulas are unchanged. Generation throughput, request throughput, error rate, and percentile ranking stay unimplemented. No ranking algorithm is chosen.
+- Taught `generate_stream` to accept the runner's clock and to call it on the first non-empty `response` string. An empty `response` does not call it, and a later piece does not replace a stamp already set. `StreamGenerateResult` carries `first_content_at`. That field is not named TTFT. The result does not carry TTFT, TPOT, throughput, or a percentile. Non-streaming `generate` stays on the adapter. The runner does not call it.
+- Switched the runner to `generate_stream` for every warm-up call and every measured call, and passed the runner's clock in. `show_model` still runs first. A missing model still raises before any stream call. Each successful row stores `first_content_at` beside client start, client end, and end-to-end duration. End-to-end duration stays client end minus client start. Client start, the stamp, and client end are three reads of that same clock. `eval_count` stays the provider output-token count. `eval_duration` stays a raw integer. `chunk_count` stays off the row. Warm-up stays one call at a time. The measured cap stays an `asyncio.Semaphore` and still defaults to 1. A failed call records that adapter error once, leaves the stamp unset, and does not cancel the other measured calls. A cancel records each started attempt once as `CancelledError`, leaves the stamp unset, does not retry, and adds no row for a call that never started. The runner does not import metric helpers. `app/benchmark/__init__.py` now describes streaming request rows with a measured concurrency cap.
+- Added `app/metrics/latency.py`. From one `RequestRecord`, TTFT is (`first_content_at` − client start) × 1000, decode duration is (client end − `first_content_at`) × 1000, and TPOT is decode duration / (`eval_count` − 1). Each function returns no value when its formula is undefined. A missing stamp leaves all three unset. `eval_count` missing or below 2 leaves TPOT unset and still returns TTFT when the stamp is present. A failed row and a cancelled row leave all three unset. `eval_count` is not labeled an estimate. The metrics module does not call Ollama. It does not calculate generation throughput, request throughput, error rate, or a percentile.
+
+### Files changed
+
+- `docs/methodology.md` (updated)
+- `docs/architecture.md` (updated)
+- `docs/metrics.md` (updated)
+- `app/inference/base.py` (updated)
+- `app/inference/ollama.py` (updated)
+- `app/benchmark/__init__.py` (updated)
+- `app/benchmark/records.py` (updated)
+- `app/benchmark/runner.py` (updated)
+- `app/metrics/__init__.py` (added)
+- `app/metrics/latency.py` (added)
+- `tests/unit/test_benchmark.py` (updated)
+- `tests/unit/test_ollama.py` (updated)
+- `tests/unit/test_latency.py` (added)
+
+### Test results
+
+`python -m pytest`: 23 passed in 0.11s. Four tests are new, and the existing 19 still pass. The run uses the fake adapter and the httpx mock transport. It does not contact Ollama. No test asserts a latency number from a live server. The teaching clocks, start 0 seconds, first content 0.8 seconds, end 3.0 seconds, and `eval_count` 21, return 800 ms, 2200 ms, and 110 ms. Those numbers are a fixture, not a live result.
+
+### Problems
+
+None. Nothing failed, and no fix was attempted.
+
+Notes that are not open problems: no test passes a successful row with no stamp into the metrics functions, and no test uses a missing `eval_count`. The code leaves all three unset when the stamp is missing, and it leaves TPOT unset when `eval_count` is missing. The tested failure row still carries the 0.8 second stamp, and the three results stay unset. The adapter stamps the first non-empty `response` and does not read the `done` flag. The new stream test covers an empty done object, which does not replace the stamp. A done object that itself contains text would set the stamp if it were the first non-empty piece. Response headers have no separate test. The clock is called only for a non-empty `response` string. Day 2, Day 3, and Day 4 notes were left as notes. The cancel test still does not check client start, client end, or end-to-end duration on cancelled rows.
+
+### Next steps
+
+Day 6: percentile ranking, average and median, generation throughput, request throughput, error rate, and aggregate statistics. CPU and RAM sampling and the database stay on Day 7. Do not treat the Day 5 teaching clocks, or a timing from these mocked tests, as a benchmark result.

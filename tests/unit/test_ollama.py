@@ -185,16 +185,63 @@ async def test_stream_chunk_count_stays_apart_from_eval_count() -> None:
         raw = "\n".join(json.dumps(line) for line in lines).encode()
         return httpx.Response(200, content=raw)
 
+    def clock() -> float:
+        return 1.0
+
     result = await _adapter(handler).generate_stream(
         "gemma3:1b",
         "Hi",
         GenerateOptions(num_predict=8),
+        clock=clock,
     )
 
     assert result.text == "abc"
     assert result.chunk_count == 4
     assert result.metadata["eval_count"] == 2
     assert result.chunk_count != result.metadata["eval_count"]
+
+
+@pytest.mark.asyncio
+async def test_leading_empty_response_stamps_the_later_piece(monkeypatch: pytest.MonkeyPatch) -> None:
+    parsed = 0
+    original_loads = json.loads
+
+    def loads(raw, *args, **kwargs):
+        nonlocal parsed
+        parsed += 1
+        return original_loads(raw, *args, **kwargs)
+
+    monkeypatch.setattr("app.inference.ollama.json.loads", loads)
+    stamped_at_object: list[int] = []
+
+    def clock() -> float:
+        stamped_at_object.append(parsed)
+        return 4.0
+
+    lines = [
+        {"response": "", "done": False},
+        {"response": "later", "done": False},
+        {
+            "response": "",
+            "done": True,
+            "eval_count": 2,
+        },
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = "\n".join(json.dumps(line) for line in lines)
+        return httpx.Response(200, content=f"\n{payload}\n".encode())
+
+    result = await _adapter(handler).generate_stream(
+        "gemma3:1b",
+        "Hi",
+        clock=clock,
+    )
+
+    assert result.text == "later"
+    assert result.chunk_count == 3
+    assert stamped_at_object == [2]
+    assert result.first_content_at == 4.0
 
 
 def test_adapter_exposes_no_percentile_ttft_or_tpot_helper() -> None:

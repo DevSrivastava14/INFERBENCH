@@ -1,6 +1,6 @@
 # InferBench benchmark methodology
 
-This note is the controlled procedure for one benchmark run. It comes from the experiment procedure in the project plan. No number in this file is a measured InferBench result. Day 4 does not rank results and does not call a live model for a recorded timing.
+This note is the controlled procedure for one benchmark run. It comes from the experiment procedure in the project plan. No number in this file is a measured InferBench result. Day 5 does not rank results and does not call a live model for a recorded timing.
 
 ## Procedure
 
@@ -19,13 +19,13 @@ Every benchmark follows the same order:
 11. Store raw results and summaries.
 12. Compare against a baseline.
 
-Day 4 performs steps 4 through 7. Step 6 is a configurable concurrent measured phase. Warm-up stays one call at a time and stays out of the measured set. The prototype default remains one measured call at a time: concurrency 1. The caller may set a higher measured cap. The run stores that setting.
+Day 5 performs steps 4 through 7 by streaming. Warm-up stays one call at a time and stays out of the measured set. The prototype default remains one measured call at a time: concurrency 1. The caller may set a higher measured cap. The run stores that setting.
 
-The runner checks that the named model is available, then issues warm-up calls, then issues the measured calls. A missing model stops the run before any generate call. Warm-up calls do not overlap. The measured phase limits how many generate calls are in flight to the stored cap.
+The runner checks that the named model is available, then issues warm-up stream calls, then issues the measured stream calls. A missing model stops the run before any generate call. Warm-up calls do not overlap. The measured phase limits how many stream calls are in flight to the stored cap.
 
-Cancellation is an explicit signal the caller can set. When it trips during the measured phase, the runner stops launching new measured calls, cancels generate calls already in flight, and returns the run. A cancelled measured attempt is recorded once, with `error_type` `CancelledError`, and is not retried. Calls that have not started are not rows. An Ollama failure still records that adapter error and does not cancel the other measured calls.
+Cancellation stays as Day 4 wrote it. Cancellation is an explicit signal the caller can set. When it trips during the measured phase, the runner stops launching new measured calls, cancels stream calls already in flight, and returns the run. A cancelled measured attempt is recorded once, with `error_type` `CancelledError`, and is not retried. Calls that have not started are not rows. An Ollama failure still records that adapter error and does not cancel the other measured calls.
 
-Steps 1, 2, 8, and 11 wait for Day 7. This day names them and does not collect them. Steps 10 and 12 wait as well. This day does not calculate aggregates, and it does not compare a run with a baseline.
+Steps 1, 2, 8, and 11 wait for Day 7. This day names them and does not collect them. Steps 10 and 12 wait as well. This day does not calculate generation throughput, request throughput, error rate, or P50, P95, and P99, and it does not compare a run with a baseline.
 
 ## Warm-up
 
@@ -56,8 +56,9 @@ Each request, warm-up or measured, is one row.
 | model | Model name sent to the adapter |
 | prompt | Prompt sent to the adapter |
 | `num_predict` | Output-token cap sent with the call |
-| client start | Benchmark-process time immediately before the generate await |
-| client end | Benchmark-process time immediately after that await returns or raises |
+| client start | Benchmark-process time immediately before the stream call |
+| first-content stamp | Benchmark-process time of the first non-empty `response` string |
+| client end | Benchmark-process time immediately after that call returns or raises |
 | end-to-end duration | Client end minus client start, in milliseconds |
 | outcome | Success, the adapter error type for that single attempt, or `CancelledError` for a cancelled measured attempt |
 | `eval_count` | Server-reported output token count |
@@ -65,7 +66,19 @@ Each request, warm-up or measured, is one row.
 | `prompt_eval_duration` | Server-reported prompt evaluation duration, raw nanoseconds |
 | `eval_duration` | Server-reported generation duration, raw nanoseconds |
 
-End-to-end duration is the client clock only. `prompt_eval_duration` and `eval_duration` stay raw integers on the row. They are not copied into the end-to-end duration and they are not converted.
+Client start, the first-content stamp, and client end are three reads of the same benchmark-process clock.
+
+The stamp is the first non-empty `response` string. An empty `response` does not start the first-content clock. A blank line and the final done object do not start the stamp and do not replace it. The row stores the stamp.
+
+Request-level TTFT, decode duration, and TPOT use the formulas already on the metric sheet:
+
+- TTFT = time of first generated content − request start, in milliseconds.
+- Decode duration = request completion − first generated content, in milliseconds.
+- TPOT = decode duration / (output tokens − 1), in milliseconds per token.
+
+The output-token count is `eval_count`. TPOT is undefined below 2 output tokens. That row still keeps TTFT and end-to-end latency when those two are defined.
+
+End-to-end duration is the client clock only. `prompt_eval_duration` and `eval_duration` stay raw integers on the row. They are not copied into the end-to-end duration, they are not decode duration, and they are not converted.
 
 An HTTP chunk is not a token. `eval_count` is the provider output-token count. It is not a count of response lines.
 
@@ -77,19 +90,17 @@ The adapter error types are the ones the Ollama adapter already raises: `OllamaU
 
 ## What this day does not calculate
 
-This procedure records rows. It does not calculate:
+This procedure records the row, including the first-content stamp, and applies the three request-level formulas above. It does not calculate:
 
-- TTFT
-- TPOT
 - generation throughput
 - request throughput
 - error rate
 - P50, P95, or P99
 
-TTFT, TPOT, and first-content timestamps belong to Day 5. Percentile ranking and the metrics engine belong to Day 6. The metric sheet already leaves the ranking algorithm for that day. This note does not choose one.
+Percentile ranking belongs to Day 6. The metric sheet already leaves the ranking algorithm for that day. This note does not choose one.
 
 ## Later reproducibility fields
 
 Concurrency is a reproducibility field. The run stores the measured concurrency setting.
 
-A finished experiment must also be able to name hardware, the inference engine version, CPU and RAM samples, and the database that stores the run. Those stay Day 7 fields. Day 4 names them and does not collect them. This day does not sample the machine, does not read an engine version, and does not write a database.
+A finished experiment must also be able to name hardware, the inference engine version, CPU and RAM samples, and the database that stores the run. Those stay Day 7 fields. Day 5 names them and does not collect them. This day does not sample the machine, does not read an engine version, and does not write a database.
