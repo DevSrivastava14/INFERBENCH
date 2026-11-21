@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from app.monitoring.sampler import ResourceSample
+
 Phase = Literal["warmup", "measured"]
 
 
@@ -46,9 +48,13 @@ class BenchmarkRun:
 
     Warm-up rows are stored on ``warmup`` and are not part of ``measured``.
     ``concurrency`` is the measured-phase cap the caller requested. Warm-up
-    does not use that cap.
+    does not use that cap. ``resource_samples`` is empty when the run had no
+    sampler. ``sampling_error`` is the exception type name when the sampler
+    stopped, and is unset otherwise.
     """
 
     warmup: tuple[RequestRecord, ...]
     measured: tuple[RequestRecord, ...]
     concurrency: int = 1
+    resource_samples: tuple[ResourceSample, ...] = ()
+    sampling_error: str | None = None

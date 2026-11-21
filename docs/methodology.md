@@ -1,6 +1,6 @@
 # InferBench benchmark methodology
 
-This note is the controlled procedure for one benchmark run. It comes from the experiment procedure in the project plan. No number in this file is a measured InferBench result. Day 6 calculates aggregate metrics from stored measured rows. It does not call a live model for a recorded timing.
+This note is the controlled procedure for one benchmark run. It comes from the experiment procedure in the project plan. No number in this file is a measured InferBench result. Day 7 samples CPU and RAM while a run is in flight and stores the configuration snapshot, the request rows, those samples, and the aggregate summary the caller already computed. It does not recompute that summary, and it does not call a live model for a recorded timing.
 
 ## Procedure
 
@@ -19,15 +19,17 @@ Every benchmark follows the same order:
 11. Store raw results and summaries.
 12. Compare against a baseline.
 
-Day 5 left the runner performing steps 4 through 7 by streaming. Day 6 does not change that runner. Warm-up stays one call at a time and stays out of the measured set. The prototype default remains one measured call at a time: concurrency 1. The caller may set a higher measured cap. The run stores that setting.
+Day 5 left the runner performing steps 4 through 7 by streaming. Day 6 left procedure step 10 as pure functions on the stored measured rows. Day 7 performs procedure steps 1, 2, 8, and 11. Step 1 is the hardware and environment snapshot. Step 2 is the inference engine name and version on that snapshot. Step 8 is the sample series taken during the run. Step 11 stores the raw rows, the samples, the snapshot, and the summary the caller already computed. Warm-up stays one call at a time and stays out of the measured set. The prototype default remains one measured call at a time: concurrency 1. The caller may set a higher measured cap. The run stores that setting. The measured cap stays as Day 4 wrote it.
 
-The runner checks that the named model is available, then issues warm-up stream calls, then issues the measured stream calls. A missing model stops the run before any generate call. Warm-up calls do not overlap. The measured phase limits how many stream calls are in flight to the stored cap.
+The runner checks the model first, with `show_model`, then issues warm-up stream calls, then issues the measured stream calls. Sampling starts only after `show_model` succeeds. The series covers warm-up and the measured phase. A missing model raises before any sample and before any generate call. Warm-up calls do not overlap. The measured phase limits how many stream calls are in flight to the stored cap.
 
-Cancellation stays as Day 4 wrote it. Cancellation is an explicit signal the caller can set. When it trips during the measured phase, the runner stops launching new measured calls, cancels stream calls already in flight, and returns the run. A cancelled measured attempt is recorded once, with `error_type` `CancelledError`, and is not retried. Calls that have not started are not rows. An Ollama failure still records that adapter error and does not cancel the other measured calls.
+Cancellation stays as Day 4 wrote it. Cancellation is an explicit signal the caller can set. When it trips during the measured phase, the runner stops launching new measured calls, cancels stream calls already in flight, and returns the run. A cancelled measured attempt is recorded once, with `error_type` `CancelledError`, and is not retried. Calls that have not started are not rows. An Ollama failure still records that adapter error and does not cancel the other measured calls. A cancelled run keeps the samples already taken and stops the loop.
 
-Day 6 performs procedure step 10 as pure functions on the stored measured rows. Warm-up stays out of every aggregate. The functions read the measured rows the runner already stored. They do not run the model again.
+A sampler exception keeps the samples already taken, records the exception type name, and leaves the other measured calls running. The exception does not cancel those calls.
 
-Steps 1, 2, 8, 9, 11, and 12 still wait. Hardware, engine version, CPU and RAM samples, and the database stay Day 7 fields. This day names them and does not collect them. This day does not compare a run with a baseline.
+Day 6 performs procedure step 10 as pure functions on the stored measured rows. Warm-up stays out of every aggregate. The functions read the measured rows the runner already stored. They do not run the model again. The database stores that summary and does not call `summarize`.
+
+Steps 9 and 12 still wait. This day does not repeat experiments and does not compare a run with a baseline.
 
 ## Warm-up
 
@@ -106,12 +108,26 @@ Request throughput divides completed measured requests by the measured window, i
 
 Error rate is failed measured requests divided by the measured requests that were not cancelled, as a fraction from 0 to 1. Failed means the row did not succeed and `error_type` is not `CancelledError`. A cancelled row is outside the error rate: it is not a failure and it is not a completed request. All cancelled, or no measured rows, leaves the rate unset. Zero failures on a non-empty population is 0.
 
+## Resource samples
+
+Sampling is optional. With no sampler, the run records no samples. With a sampler, sampling starts only after `show_model` succeeds. The series covers warm-up and the measured phase. Warm-up stays one call at a time and stays out of the measured set. A missing model raises before any sample. A cancelled run keeps the samples already taken and stops the loop. A sampler exception keeps the samples already taken, records the exception type name, and leaves the other measured calls running.
+
+Each sample stores the runner clock, system CPU percent, system RAM used bytes, system RAM total bytes, and the resident set of the benchmark process.
+
+CPU percent is system-wide at the sample instant. System RAM is used bytes and total bytes. Process RAM is the resident set of the benchmark process, in bytes. System RAM is the whole machine, which includes Ollama. Process RAM is this process. This day does not search for the Ollama PID.
+
+Samples are not TTFT, not TPOT, not end-to-end latency, and not a throughput. The first non-blocking CPU read can be 0 because the probe has no earlier baseline. That 0 is a sample value. It is not a latency result.
+
+## Configuration snapshot
+
+The snapshot stores model, prompt, `num_predict`, warm-up count, measured count, concurrency, engine name, engine version, capture time, CPU model, logical CPU count, total RAM bytes, and Python version. Hardware comes from an injectable probe. Engine name and engine version are strings the caller passes. Engine version is the string the caller stored. The runner does not fetch it.
+
+Concurrency remains a reproducibility field. The run stores the measured concurrency setting.
+
+## Persistence
+
+The database stores the snapshot, every request row, warm-up included, the resource samples, and the aggregate summary the caller already computed. Load returns those stored values and does not recompute them. It stores request `success` and `error_type`. It does not set `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, or `CANCELLED`. It does not call `summarize`. Unset aggregate fields stay null on load. It does not call Ollama and it does not sample the machine.
+
 ## What this day still does not do
 
-The runner stays as Day 5 left it. This day does not capture hardware, does not record the engine version, does not sample CPU and RAM, does not repeat experiments, does not store summaries, and does not compare a run with a baseline. Steps 1, 2, 8, 9, 11, and 12 still wait.
-
-## Later reproducibility fields
-
-Concurrency is a reproducibility field. The run stores the measured concurrency setting.
-
-A finished experiment must also be able to name hardware, the inference engine version, CPU and RAM samples, and the database that stores the run. Those stay Day 7 fields. Day 6 names them and does not collect them. This day does not sample the machine, does not read an engine version, and does not write a database.
+Steps 9 and 12 still wait. This day does not repeat experiments and does not compare a run with a baseline. It does not set the five execution states.

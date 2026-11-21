@@ -13,6 +13,7 @@ import pytest
 
 from app.benchmark.runner import BenchmarkRunner
 from app.core.exceptions import ModelNotInstalledError, OllamaTimeoutError
+from app.monitoring.sampler import ResourceSample
 from app.inference.base import (
     GenerateOptions,
     GenerateResult,
@@ -70,6 +71,9 @@ class FakeAdapter(InferenceAdapter):
         self.stream_calls = 0
         self.non_streaming_calls = 0
         self.show_calls = 0
+
+    async def engine_version(self) -> str:
+        raise AssertionError("the runner must not call engine_version")
 
     async def list_models(self) -> list[ModelInfo]:
         return []
@@ -156,6 +160,46 @@ class GatedAdapter(FakeAdapter):
             return _stream_result(clock)
         finally:
             self.measured_now -= 1
+
+
+class SamplingAdapter(FakeAdapter):
+    """Lets the sample loop take one sample inside each stream call.
+
+    The first sample is taken after ``show_model`` and before the first
+    stream call. Each later sample is taken while that call is still running.
+    """
+
+    def __init__(self, *, warmup_count: int) -> None:
+        super().__init__()
+        self.warmup_count = warmup_count
+        self.events: list[str] = []
+        self.seen: list[str] = []
+        self.release_sample = asyncio.Event()
+
+    async def show_model(self, name: str) -> ModelInfo:
+        self.events.append("show")
+        return await super().show_model(name)
+
+    async def generate_stream(
+        self,
+        model: str,
+        prompt: str,
+        options: GenerateOptions | None = None,
+        *,
+        clock,
+    ) -> StreamGenerateResult:
+        self.stream_calls += 1
+        phase = "warmup" if self.stream_calls <= self.warmup_count else "measured"
+        self.events.append(phase)
+        before = len(self.seen)
+        self.release_sample.set()
+        for _ in range(1000):
+            if len(self.seen) > before:
+                break
+            await asyncio.sleep(0)
+        else:
+            pytest.fail("sampler did not run during the stream call")
+        return _stream_result(clock)
 
 
 class CancelAdapter(FakeAdapter):
@@ -415,6 +459,181 @@ async def test_failed_stream_does_not_cancel_other_measured_calls() -> None:
     succeeded = [row for row in run.measured if row.success]
     assert len(succeeded) == 3
     assert all(row.first_content_at is not None for row in succeeded)
+
+
+def _fixture_sample(taken_at: float) -> ResourceSample:
+    """One fake sample. The percent and byte counts are probe fixtures."""
+
+    return ResourceSample(
+        taken_at=taken_at,
+        cpu_percent=0.0,
+        system_ram_used_bytes=11,
+        system_ram_total_bytes=22,
+        process_rss_bytes=33,
+    )
+
+
+@pytest.mark.asyncio
+async def test_fake_sampler_records_ordered_samples_after_show_model() -> None:
+    adapter = SamplingAdapter(warmup_count=1)
+
+    def sampler() -> ResourceSample:
+        assert adapter.show_calls == 1
+        if adapter.stream_calls == 0:
+            label = "after-show"
+        elif adapter.stream_calls <= adapter.warmup_count:
+            label = "warmup"
+        else:
+            label = "measured"
+        adapter.seen.append(label)
+        return _fixture_sample(float(len(adapter.seen)))
+
+    async def sleep(_interval: float) -> None:
+        await adapter.release_sample.wait()
+        adapter.release_sample.clear()
+
+    run = await asyncio.wait_for(
+        _runner(adapter).run(
+            "gemma3:1b",
+            "Hi",
+            warmup_count=1,
+            measured_count=1,
+            sampler=sampler,
+            sample_interval=0.5,
+            sleep=sleep,
+        ),
+        timeout=2,
+    )
+
+    assert adapter.events == ["show", "warmup", "measured"]
+    assert adapter.seen == ["after-show", "warmup", "measured"]
+    assert [sample.taken_at for sample in run.resource_samples] == [1.0, 2.0, 3.0]
+    assert run.sampling_error is None
+    assert len(run.warmup) == 1
+    assert len(run.measured) == 1
+
+
+@pytest.mark.asyncio
+async def test_run_without_sampler_records_no_samples() -> None:
+    run = await _runner(FakeAdapter()).run(
+        "gemma3:1b",
+        "Hi",
+        warmup_count=1,
+        measured_count=1,
+    )
+
+    assert run.resource_samples == ()
+    assert run.sampling_error is None
+
+
+@pytest.mark.asyncio
+async def test_missing_model_takes_no_sample() -> None:
+    adapter = FakeAdapter(missing=True)
+    taken: list[ResourceSample] = []
+
+    def sampler() -> ResourceSample:
+        sample = _fixture_sample(1.0)
+        taken.append(sample)
+        return sample
+
+    async def sleep(_interval: float) -> None:
+        await asyncio.sleep(0)
+
+    with pytest.raises(ModelNotInstalledError):
+        await _runner(adapter).run(
+            "missing:model",
+            "Hi",
+            warmup_count=1,
+            measured_count=1,
+            sampler=sampler,
+            sleep=sleep,
+        )
+
+    assert taken == []
+    assert adapter.show_calls == 1
+    assert adapter.stream_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_later_sampler_failure_keeps_earlier_samples_and_rows() -> None:
+    calls: list[int] = []
+
+    def sampler() -> ResourceSample:
+        calls.append(len(calls) + 1)
+        if len(calls) >= 2:
+            raise RuntimeError("probe failed")
+        return _fixture_sample(float(calls[-1]))
+
+    async def sleep(_interval: float) -> None:
+        return
+
+    run = await _runner(FakeAdapter()).run(
+        "gemma3:1b",
+        "Hi",
+        warmup_count=1,
+        measured_count=1,
+        sampler=sampler,
+        sleep=sleep,
+    )
+
+    assert calls == [1, 2]
+    assert run.resource_samples == (_fixture_sample(1.0),)
+    assert run.sampling_error == "RuntimeError"
+    assert len(run.warmup) == 1
+    assert len(run.measured) == 1
+    assert run.measured[0].success is True
+
+
+@pytest.mark.asyncio
+async def test_cancelled_run_keeps_samples_and_skips_unstarted_calls() -> None:
+    cancel_event = asyncio.Event()
+    adapter = CancelAdapter(warmup_count=1, cancel_event=cancel_event)
+    taken: list[ResourceSample] = []
+
+    def sampler() -> ResourceSample:
+        assert adapter.show_calls == 1
+        sample = _fixture_sample(float(len(taken) + 1))
+        taken.append(sample)
+        return sample
+
+    async def sleep(_interval: float) -> None:
+        await asyncio.Event().wait()
+
+    run = await asyncio.wait_for(
+        BenchmarkRunner(adapter, clock=FakeClock()).run(
+            "gemma3:1b",
+            "Hi",
+            warmup_count=1,
+            measured_count=4,
+            concurrency=2,
+            cancel_event=cancel_event,
+            sampler=sampler,
+            sleep=sleep,
+        ),
+        timeout=2,
+    )
+
+    assert taken == [_fixture_sample(1.0)]
+    assert run.resource_samples == (_fixture_sample(1.0),)
+    assert run.sampling_error is None
+    assert adapter.measured_calls == 2
+    assert len(run.measured) == 2
+    assert [row.error_type for row in run.measured] == ["CancelledError", "CancelledError"]
+
+
+def test_metrics_exposes_no_sampler_or_database() -> None:
+    import app.metrics as metrics_package
+    import app.metrics.latency as latency_module
+    import app.metrics.statistics as statistics_module
+    import app.metrics.throughput as throughput_module
+
+    banned = ("sampler", "psutil", "sqlalchemy", "sqlite", "database")
+    names: list[str] = []
+    for module in (metrics_package, latency_module, statistics_module, throughput_module):
+        names.extend(name.lower() for name in dir(module))
+    for name in names:
+        for word in banned:
+            assert word not in name
 
 
 def test_runner_and_adapter_expose_no_percentile_ttft_or_tpot_helper() -> None:

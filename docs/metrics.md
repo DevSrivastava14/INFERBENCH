@@ -119,3 +119,19 @@ Ollama may return these fields. InferBench preserves them beside the client cloc
 `prompt_eval_duration` is not client-observed TTFT. `eval_duration` is not client-observed end-to-end latency, and it is not automatically the client-observed decode duration. The adapter stores the integers and does not convert them.
 
 `eval_count` may supply the output-token count used in TPOT and generation throughput. Using that count does not turn those metrics into server-reported clocks. The durations in those formulas remain client-observed.
+
+## Resource samples
+
+CPU percent, system RAM, and process RAM are samples taken while a run is in flight. They are not a latency formula and they are not a throughput formula. The latency, throughput, percentile, and error-rate formulas above are unchanged.
+
+| | |
+|---|---|
+| What is stored | System CPU percent at the sample instant, system RAM used bytes, system RAM total bytes, and the resident set of the benchmark process in bytes |
+| Unit | CPU percent is a system-wide percent. RAM figures are bytes. |
+| Clock | The runner clock names when the sample was taken. The sample is not a client-observed latency. |
+
+CPU percent is system-wide at the sample instant. System RAM is used bytes and total bytes for the whole machine, which includes Ollama. Process RAM is the resident set of the benchmark process, in bytes. It is not the model's memory. This day does not search for the Ollama PID.
+
+Samples are not TTFT, not TPOT, not end-to-end latency, and not a throughput. The first non-blocking CPU read can be 0 because the probe has no earlier baseline. That 0 is a sample value. It is not a latency result.
+
+`app/monitoring/` records these samples and the hardware identity on the configuration snapshot. `app/metrics/` does not call `psutil`. The database stores the samples. It does not turn them into a percentile or a throughput, and it does not call `summarize`.

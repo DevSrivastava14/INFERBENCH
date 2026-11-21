@@ -28,15 +28,15 @@ Local models, CPU and RAM monitoring, SQLite
 
 **Routing.** Chooses a model from availability, workload, measured performance, and the selected policy. Policies to support later are static, workload-aware, latency-constrained, and availability-aware fallback.
 
-**Database.** Stores experiment configuration, model metadata, workload settings, request measurements, aggregate metrics, status, errors, and the hardware snapshot. It does not compute live metrics.
+**Database.** Stores the snapshot, the request rows, the resource samples, and the aggregate summary the caller already computed. It stores request `success` and `error_type`. It does not set `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, or `CANCELLED`. It does not call `summarize` and it does not call Ollama. Load returns the stored values and does not recompute them. Unset aggregate fields stay null on load.
 
-**Monitoring.** Samples CPU and RAM during a run, including system memory and process memory where that is possible. It does not time tokens.
+**Monitoring.** Owns CPU and RAM samples and hardware identity. CPU percent is system-wide. System RAM is the whole machine. Process RAM is the resident set of the benchmark process. It does not time tokens and it does not compute a latency.
 
 ## Boundaries
 
 These rules keep later days from mixing clocks and owners.
 
-- The metrics module does not call Ollama.
+- The metrics module does not call Ollama and does not call `psutil`.
 - Adapters do not compute percentiles.
 - The optimization module does not invent numbers. A recommendation needs a stored measurement.
 - The benchmark runner must not block the FastAPI event loop. That is a later requirement. Day 1 does not build the runner.
@@ -45,9 +45,13 @@ A streaming response shows the split. The inference adapter reads the HTTP strea
 
 `app/metrics/latency.py` computes TTFT, decode duration, and TPOT for one stored row. It does not call Ollama.
 
-`app/metrics/statistics.py` computes average, median, P50, P95, P99, and error rate from one stored run. `app/metrics/throughput.py` computes generation throughput and request throughput from that same run. The metrics package does not call Ollama.
+`app/metrics/statistics.py` computes average, median, P50, P95, P99, and error rate from one stored run. `app/metrics/throughput.py` computes generation throughput and request throughput from that same run. `app/metrics/` still does not call Ollama and does not call `psutil`.
 
-`app/benchmark/` stores the rows, including the stamp. It still owns warm-up one call at a time, a measured concurrency cap, cancellation of in-flight measured calls, and one request row per started call. It still does not own percentile math, and it still does not import metrics. It still does not set the five execution states. The metrics module does not open an HTTP connection.
+`app/benchmark/` stores the request rows, including the stamp. It still owns warm-up one call at a time, a measured concurrency cap, cancellation of in-flight measured calls, and one request row per started call. It still does not own percentile math, and it still does not import metrics. It still does not open SQLite. It may call an injected sampler. It still does not set the five execution states. The metrics module does not open an HTTP connection.
+
+`app/monitoring/` owns CPU and RAM samples and hardware identity. It does not time tokens.
+
+`app/database/` stores the snapshot, the rows, the samples, and the summary. It does not call `summarize` and it does not call Ollama. Load returns the stored aggregate fields, including nulls, and does not recompute them.
 
 ## Execution states
 

@@ -5,8 +5,9 @@ warm-up and once per measured repetition. Warm-up is one call at a time.
 The measured phase limits in-flight stream calls with a semaphore. The
 default cap is 1. A cancel signal stops new measured launches, cancels
 in-flight stream calls, and records each started attempt once. A failed
-call is recorded and is not retried. This module does not compute TTFT,
-TPOT, throughput, or percentiles.
+call is recorded and is not retried. An optional sampler records resource
+samples after the model check. This module does not compute TTFT, TPOT,
+throughput, or percentiles, and it does not open a database.
 """
 
 from __future__ import annotations
@@ -14,12 +15,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.benchmark.records import BenchmarkRun, Phase, RequestRecord
 from app.core.exceptions import OllamaError
 from app.inference.base import GenerateOptions, InferenceAdapter
+from app.monitoring.sampler import ResourceSample
 
 
 class BenchmarkRunner:
@@ -28,7 +30,8 @@ class BenchmarkRunner:
     ``clock`` returns seconds, the same unit as ``time.perf_counter``. The
     default is that process clock. The same clock is passed into each
     stream call. ``concurrency`` limits measured stream calls only.
-    ``cancel_event`` is an explicit signal the caller can set.
+    ``cancel_event`` is an explicit signal the caller can set. ``sampler``
+    is optional. With no sampler, the run records no samples.
     """
 
     def __init__(
@@ -50,13 +53,17 @@ class BenchmarkRunner:
         measured_count: int = 3,
         concurrency: int = 1,
         cancel_event: asyncio.Event | None = None,
+        sampler: Callable[[], ResourceSample] | None = None,
+        sample_interval: float = 1.0,
+        sleep: Callable[[float], Awaitable[None]] | None = None,
     ) -> BenchmarkRun:
         """Run warm-up, then the measured phase, and return both row groups.
 
         Defaults are 2 warm-up calls, 3 measured calls, and measured
         concurrency 1. ``show_model`` runs first. If the model is missing,
         that call raises and ``generate_stream`` is not used. Warm-up does
-        not use the cap and does not overlap.
+        not use the cap and does not overlap. A sampler starts only after
+        ``show_model`` succeeds. The default sleep is ``asyncio.sleep``.
         """
         if warmup_count < 0:
             raise ValueError("warmup_count must be zero or greater")
@@ -64,34 +71,53 @@ class BenchmarkRunner:
             raise ValueError("measured_count must be zero or greater")
         if concurrency < 1:
             raise ValueError("concurrency must be 1 or greater")
+        if sampler is not None and sample_interval <= 0:
+            raise ValueError("sample_interval must be greater than 0")
 
         await self._adapter.show_model(model)
         options = None if num_predict is None else GenerateOptions(num_predict=num_predict)
-        warmup: list[RequestRecord] = []
-        for _ in range(warmup_count):
-            warmup.append(
-                await self._timed(
-                    "warmup",
-                    model,
-                    prompt,
-                    num_predict,
-                    options,
-                    record_cancellation=False,
-                )
+        samples: list[ResourceSample] = []
+        sampling_errors: list[str] = []
+        sample_task: asyncio.Task[None] | None = None
+        if sampler is not None:
+            sleep_fn = asyncio.sleep if sleep is None else sleep
+            sample_task = asyncio.create_task(
+                _sample_loop(sampler, sample_interval, sleep_fn, samples, sampling_errors)
             )
-        measured = await self._measured_phase(
-            model,
-            prompt,
-            num_predict,
-            options,
-            measured_count,
-            concurrency,
-            cancel_event,
-        )
+            await asyncio.sleep(0)
+        try:
+            warmup: list[RequestRecord] = []
+            for _ in range(warmup_count):
+                warmup.append(
+                    await self._timed(
+                        "warmup",
+                        model,
+                        prompt,
+                        num_predict,
+                        options,
+                        record_cancellation=False,
+                    )
+                )
+            measured = await self._measured_phase(
+                model,
+                prompt,
+                num_predict,
+                options,
+                measured_count,
+                concurrency,
+                cancel_event,
+            )
+        finally:
+            if sample_task is not None:
+                sample_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await sample_task
         return BenchmarkRun(
             warmup=tuple(warmup),
             measured=measured,
             concurrency=concurrency,
+            resource_samples=tuple(samples),
+            sampling_error=sampling_errors[0] if sampling_errors else None,
         )
 
     async def _measured_phase(
@@ -235,6 +261,33 @@ class BenchmarkRunner:
             metadata=result.metadata,
             first_content_at=result.first_content_at,
         )
+
+
+async def _sample_loop(
+    sampler: Callable[[], ResourceSample],
+    interval: float,
+    sleep: Callable[[float], Awaitable[None]],
+    samples: list[ResourceSample],
+    sampling_errors: list[str],
+) -> None:
+    """Sample, sleep, and repeat until this task is cancelled.
+
+    A sampler exception stops later samples and records the exception type
+    name. It does not cancel inference calls. This loop does not call
+    ``psutil``.
+    """
+
+    while True:
+        try:
+            sample = sampler()
+        except Exception as exc:
+            sampling_errors.append(type(exc).__name__)
+            return
+        samples.append(sample)
+        try:
+            await sleep(interval)
+        except asyncio.CancelledError:
+            return
 
 
 def _record(

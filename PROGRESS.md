@@ -207,3 +207,52 @@ Notes that are not open problems: no test shows a `CancelledError` row setting t
 ### Next steps
 
 Day 7: CPU and RAM sampling, process resource tracking, SQLite, and configuration snapshots. Do not treat a Day 6 fixture duration, or a timing from these mocked tests, as a benchmark result.
+
+## 2026-11-22 — Day 7: Resource Monitoring and Persistence
+
+### Completed
+
+- Updated `docs/methodology.md` so Day 7 performs procedure steps 1, 2, 8, and 11. Step 1 is the hardware and environment snapshot. Step 2 is the inference engine name and version on that snapshot. Step 8 is the CPU and RAM sample series. Step 11 stores the raw rows, the samples, the snapshot, and the summary the caller already computed. Sampling starts only after `show_model`. A missing model raises before any sample. A cancelled run keeps samples already taken and stops the loop. A sampler exception keeps earlier samples, records the exception type name, and leaves the other measured calls running. CPU percent is system-wide. System RAM is used and total bytes for the whole machine. Process RAM is this process's resident set. Samples are not latency and not throughput. The snapshot lists the recorded fields. Engine version is the string the caller stored. The runner does not fetch it. The database stores request `success` and `error_type`, does not set the five execution states, does not call `summarize`, and leaves unset aggregates null on load. Steps 9 and 12 still wait. This day does not repeat experiments and does not compare a run with a baseline.
+- Pointed `docs/architecture.md` at `app/monitoring/` for CPU and RAM samples and hardware identity, and at `app/database/` for storing the snapshot, the rows, the samples, and the summary. `app/benchmark/` still stores the request rows, still does not own percentile math, still does not import metrics, and still does not open SQLite. It may call an injected sampler. `app/metrics/` still does not call Ollama and does not call `psutil`.
+- Added a resource-samples section to `docs/metrics.md`. The latency, throughput, percentile, and error-rate formulas are unchanged. The percentile formula cell still says "P50 is the middle."
+- Added `app/monitoring/`. `ResourceSample` stores the runner clock, system CPU percent, system RAM used and total bytes, and this process's RSS. `read_sample()` uses an injectable probe. The real probe calls `psutil.cpu_percent` with no blocking interval. `capture_hardware()` and `build_snapshot()` copy an injectable hardware probe and the caller-supplied engine name and version. Capture time comes from an injectable clock. Neither function calls Ollama or starts a run.
+- Added `engine_version()` on the adapter. It calls `GET /api/version` and returns the version string. A missing version string raises `MalformedResponseError`. The runner does not call that method. `generate`, `generate_stream`, `list_models`, and `show_model` stay as they were.
+- Sampling is optional on the runner. The default is no sampler, so the existing tests keep their behavior. With a sampler, the loop starts after `show_model`, takes one sample, awaits the injected sleep for the interval, and repeats until the run returns. The default sleep is `asyncio.sleep`. The default interval is 1 second. A set sampler requires an interval greater than 0. A sampler exception stops later samples, keeps earlier samples, sets `sampling_error` to the exception type name, and leaves inference calls running. Cancel still stops the loop and keeps samples already taken. `BenchmarkRun` stores `resource_samples` and `sampling_error`. The runner still does not import metric helpers and still does not open SQLite.
+- Added `app/database/`. SQLAlchemy stores the snapshot, every request row, the resource samples, and nullable aggregate columns. `save_experiment` writes those values. `load_experiment` returns the stored snapshot, warm-up rows, measured rows, samples, `sampling_error`, and aggregate fields, including nulls. It does not call `summarize` and does not recompute throughput or percentiles. Request status is `success` and `error_type`. The five execution states are not stored. `requirements.txt` gained `psutil` and `sqlalchemy` as plain requirement lines.
+
+### Files changed
+
+- `docs/methodology.md` (updated)
+- `docs/architecture.md` (updated)
+- `docs/metrics.md` (updated)
+- `requirements.txt` (updated)
+- `app/monitoring/__init__.py` (added)
+- `app/monitoring/sampler.py` (added)
+- `app/monitoring/snapshot.py` (added)
+- `app/inference/base.py` (updated)
+- `app/inference/ollama.py` (updated)
+- `app/benchmark/records.py` (updated)
+- `app/benchmark/runner.py` (updated)
+- `app/database/__init__.py` (added)
+- `app/database/models.py` (added)
+- `app/database/repository.py` (added)
+- `tests/unit/test_monitoring.py` (added)
+- `tests/unit/test_database.py` (added)
+- `tests/unit/test_benchmark.py` (updated)
+- `tests/unit/test_ollama.py` (updated)
+
+### Test results
+
+`python -m pytest`: 54 passed in 0.97s. Twelve tests are new, and the existing 42 still pass. The run uses a fake sampler, a fake hardware probe, a fake clock, constructed rows, and the httpx mock transport. It does not contact Ollama. No test asserts a live CPU number, a live RSS, a live engine version, or a latency number from a live server.
+
+### Problems
+
+None left open.
+
+Nothing failed in the suite, and no product fix was attempted.
+
+Notes that are not open problems: no database test stores a non-null `sampling_error` and reads it back. No test sets `sample_interval` to 0 or below. `engine_version()` has no test of its own for a non-JSON body, a connection failure, or a timeout. `psutil_probe()` and `psutil_hardware_probe()` have no test, because a live CPU percent is not a test result. The percentile formula cell in `docs/metrics.md` still says "P50 is the middle." Day 2, Day 3, Day 4, Day 5, and Day 6 notes were left as notes.
+
+### Next steps
+
+Day 8: workload sensitivity. Prompt length, output length, and short and long requests stay on that day. Do not treat a Day 7 fixture duration, or a timing from these mocked tests, as a benchmark result.

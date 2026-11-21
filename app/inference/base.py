@@ -1,8 +1,8 @@
 """Adapter operations shared by inference providers.
 
-The four operations are list models, show one model, generate, and generate
-stream. Results carry provider text and raw provider metadata. They do not
-carry TTFT, TPOT, throughput, or percentiles.
+The operations are list models, show one model, generate, generate stream,
+and the engine version string. Results carry provider text and raw provider
+metadata. They do not carry TTFT, TPOT, throughput, or percentiles.
 """
 
 from __future__ import annotations
@@ -93,4 +93,11 @@ class InferenceAdapter(ABC):
 
         ``clock`` is the runner's clock. Call it when the first non-empty
         ``response`` string is read. Do not call it for an empty piece.
+        """
+
+    @abstractmethod
+    async def engine_version(self) -> str:
+        """Return the inference engine version string.
+
+        This call does not compute a latency.
         """

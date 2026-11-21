@@ -1,8 +1,9 @@
 """Async Ollama client.
 
-Talks to ``GET /api/tags``, ``POST /api/show``, and ``POST /api/generate``.
-Server duration fields are kept on the raw metadata object. This module does
-not convert them, and it does not compute TTFT, TPOT, throughput, or percentiles.
+Talks to ``GET /api/tags``, ``GET /api/version``, ``POST /api/show``, and
+``POST /api/generate``. Server duration fields are kept on the raw metadata
+object. This module does not convert them, and it does not compute TTFT,
+TPOT, throughput, or percentiles.
 One attempt per call. No retries.
 """
 
@@ -41,6 +42,20 @@ class OllamaAdapter(InferenceAdapter):
     ) -> None:
         self._config = config if config is not None else OllamaConfig.from_env()
         self._transport = transport
+
+    async def engine_version(self) -> str:
+        """Return the ``version`` string from ``GET /api/version``.
+
+        A missing version string, or a body that is not the expected JSON,
+        raises ``MalformedResponseError``. This method does not compute a
+        latency.
+        """
+
+        body = await self._request("GET", "/api/version")
+        version = body.get("version")
+        if not isinstance(version, str) or version == "":
+            raise MalformedResponseError("version response has no version string")
+        return version
 
     async def list_models(self) -> list[ModelInfo]:
         body = await self._request("GET", "/api/tags")
