@@ -284,3 +284,54 @@ Notes that are not open problems: no database test stores a non-null `sampling_e
 ### Next steps
 
 Day 8: workload sensitivity. Prompt length, output length, and short and long requests stay on that day. Do not treat a Day 7 fixture duration, or a timing from these mocked tests, as a benchmark result.
+
+## 2026-11-22 — Day 8: Workload Sensitivity
+
+### Five-line summary
+
+Day 8 is workload sensitivity: four named profiles that cross short and long prompts with short and long output caps. Nothing from earlier days failed, so there is no fix-first work. The profile name is stored with the prompt and `num_predict`, and one live `gemma3:1b` run writes findings only from SQLite. Qwen, concurrency sweeps, thinking mode, and baseline comparison stay on later days. The day is done when mocked pytest passes and the findings file matches the stored rows.
+
+### Completed
+
+- Updated `docs/methodology.md` so Day 8 runs four profiles as four separate runs of `gemma3:1b`. Warm-up stays 2. Measured calls stay 3. Concurrency stays 1. Those settings stay the same across the four runs. The profile names, in order, are `short_prompt_short_output`, `long_prompt_short_output`, `short_prompt_long_output`, and `long_prompt_long_output`. The short prompt is `Name one fact about local inference.` The long prompt is that sentence, one space, then `This sentence only makes the prompt longer. ` thirty times. Short output sets `num_predict` to 32. Long output sets `num_predict` to 128. Character length is how the prompt was built. Token length is `prompt_eval_count`. Output length is `eval_count`. A longer `num_predict` is a higher cap. It is not proof the model emitted that many tokens. The profile name is stored on the snapshot with the prompt and `num_predict`. A missing name stays unset. Steps 9 and 12 still wait. The findings file may describe the four stored summaries. It may not recommend a profile, and it may not call one configuration an improvement.
+- Pointed `docs/architecture.md` at `app/benchmark/workload.py` for the profile catalog. The runner stores `profile_name`. The database stores that name and does not recompute the summary. `app/benchmark/` still does not own percentile math, still does not import metrics, and still does not open SQLite. The live script is the caller that opens the database. `app/metrics/` still does not call Ollama and does not call `psutil`.
+- Recorded in `docs/metrics.md` that an experiment's prompt length is `prompt_eval_count` and that `num_predict` is the cap. The latency, throughput, percentile, and error-rate formulas stay as Day 6 wrote them. The percentile formula cell still says "P50 is the middle."
+- Added `app/benchmark/workload.py` with the four frozen profiles in that order. Added optional `profile_name` on `BenchmarkRun`, on `ConfigurationSnapshot`, and on the experiment row. `run()` and `build_snapshot()` take it as a keyword and default it to unset. `save_experiment` writes the snapshot's name. `load_experiment` returns it. A missing name is stored and loaded as null. The runner still takes the prompt and `num_predict` from its existing arguments and does not look up the catalog. It still does not import metrics, still does not open SQLite, and still does not set `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, or `CANCELLED`. `app/inference/ollama.py` was not changed. The request timeout stays 120 seconds.
+- Added `scripts/run_workload_sensitivity.py`. For each profile, in catalog order, the script calls `show_model` first, reads the engine version, builds the snapshot with `psutil_hardware_probe` and the real clock, and runs with `psutil_probe` through `read_sample` at a 1-second interval. The script calls `summarize`, then `save_experiment`. The runner does not. SQLite is `experiments/results/workload-sensitivity.sqlite`. `docs/workload-findings.md` was written from the four experiments loaded back out. If the model is missing or Ollama is down, the script exits non-zero and does not write findings numbers. No model was downloaded. The findings file states that the timeout was the adapter default of 120 seconds, that the measured count is 3, and that the file does not recommend a profile. On the long-output profiles, the stored `eval_count` is lower than the cap. No stored `error_type` was set. No figure from that file was copied into `LEARN.md`, `PROGRESS.md`, or a pytest assertion.
+
+### Files changed
+
+- `docs/methodology.md` (updated)
+- `docs/architecture.md` (updated)
+- `docs/metrics.md` (updated)
+- `app/benchmark/workload.py` (added)
+- `app/benchmark/records.py` (updated)
+- `app/benchmark/runner.py` (updated)
+- `app/monitoring/snapshot.py` (updated)
+- `app/database/models.py` (updated)
+- `app/database/repository.py` (updated)
+- `tests/unit/test_workload.py` (added)
+- `tests/unit/test_benchmark.py` (updated)
+- `tests/unit/test_database.py` (updated)
+- `tests/unit/test_monitoring.py` (updated)
+- `scripts/run_workload_sensitivity.py` (added)
+- `experiments/results/workload-sensitivity.sqlite` (added)
+- `docs/workload-findings.md` (added)
+
+### Test results
+
+`python -m pytest`: 61 passed in 0.76s. Seven tests are new, and the existing 54 still pass. The run uses the fake adapter, the fake clock, constructed rows, and the httpx mock transport. It does not contact Ollama. No test asserts a latency number from a live server. The live script is not collected. `docs/workload-findings.md` was loaded back from `experiments/results/workload-sensitivity.sqlite`. Pytest does not read that file for an expected timing.
+
+### Problems
+
+None left open.
+
+The first launch of `python scripts/run_workload_sensitivity.py` failed before any Ollama call. Python put `scripts/` on the module path, so `import app` raised `ModuleNotFoundError`. No findings file was written, and the database was not created. The script now inserts the project root on `sys.path` before those imports. The second launch exited 0.
+
+`TODAY.md` says the mocked `long_prompt_short_output` run sends `num_predict` 128. That conflicts with the short-output cap of 32. The chosen rule is 32 for that profile. The mocked run stores the name and sends 32. The long-output profiles still use 128.
+
+Notes that are not open problems: the mocked profile run uses 1 warm-up call and 1 measured call. `save_experiment` writes the snapshot's `profile_name`, so a name set only on the run would load back as null. The live script sets both. The catalog check looks at the runner module's names after the call. This live series did not include a system CPU sample of 0. The script keeps a 0 if one is taken. If `show_model` fails after the opening check, the script has already removed any earlier findings file and can leave a partial SQLite file. This run finished all four profiles. `LEARN.md` and `docs/day1-check.md` were already modified in the working tree. They were not edited today, and they do not hold a figure from the findings file. Day 2, Day 3, Day 4, Day 5, Day 6, and Day 7 notes were left as notes.
+
+### Next steps
+
+Day 9: model and quantization analysis. Compare the available local models. A quantization comparison still needs compatible variants of one model. Do not treat a Day 8 live duration, a CPU sample, or a timing from these mocked tests, as a benchmark result. Do not copy a figure from `docs/workload-findings.md` into `LEARN.md` or into a pytest assertion.

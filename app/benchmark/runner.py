@@ -6,8 +6,10 @@ The measured phase limits in-flight stream calls with a semaphore. The
 default cap is 1. A cancel signal stops new measured launches, cancels
 in-flight stream calls, and records each started attempt once. A failed
 call is recorded and is not retried. An optional sampler records resource
-samples after the model check. This module does not compute TTFT, TPOT,
-throughput, or percentiles, and it does not open a database.
+samples after the model check. ``profile_name`` is stored on the run when
+the caller passes it. This module does not look up a profile catalog. It
+does not compute TTFT, TPOT, throughput, or percentiles, and it does not
+open a database.
 """
 
 from __future__ import annotations
@@ -52,6 +54,7 @@ class BenchmarkRunner:
         warmup_count: int = 2,
         measured_count: int = 3,
         concurrency: int = 1,
+        profile_name: str | None = None,
         cancel_event: asyncio.Event | None = None,
         sampler: Callable[[], ResourceSample] | None = None,
         sample_interval: float = 1.0,
@@ -64,6 +67,8 @@ class BenchmarkRunner:
         that call raises and ``generate_stream`` is not used. Warm-up does
         not use the cap and does not overlap. A sampler starts only after
         ``show_model`` succeeds. The default sleep is ``asyncio.sleep``.
+        ``profile_name`` is stored as given. Prompt and ``num_predict`` still
+        come from the arguments above.
         """
         if warmup_count < 0:
             raise ValueError("warmup_count must be zero or greater")
@@ -118,6 +123,7 @@ class BenchmarkRunner:
             concurrency=concurrency,
             resource_samples=tuple(samples),
             sampling_error=sampling_errors[0] if sampling_errors else None,
+            profile_name=profile_name,
         )
 
     async def _measured_phase(

@@ -25,7 +25,8 @@ class ConfigurationSnapshot:
     """The fields stored for one experiment configuration.
 
     ``engine_version`` is the string the caller passed. This object does not
-    fetch it.
+    fetch it. ``profile_name`` is the name the caller passed. It is unset
+    when the caller omits it. This object does not look up a profile catalog.
     """
 
     model: str
@@ -41,6 +42,7 @@ class ConfigurationSnapshot:
     logical_cpu_count: int
     total_ram_bytes: int
     python_version: str
+    profile_name: str | None = None
 
 
 def capture_hardware(probe: Callable[[], HardwareIdentity]) -> HardwareIdentity:
@@ -67,11 +69,12 @@ def build_snapshot(
     engine_version: str,
     clock: Callable[[], float],
     probe: Callable[[], HardwareIdentity],
+    profile_name: str | None = None,
 ) -> ConfigurationSnapshot:
     """Combine caller fields with hardware from ``probe``.
 
     Capture time is one reading of ``clock``. Engine name and engine version
-    are the strings the caller passed.
+    are the strings the caller passed. ``profile_name`` is stored as given.
     """
 
     hardware = capture_hardware(probe)
@@ -89,6 +92,7 @@ def build_snapshot(
         logical_cpu_count=hardware.logical_cpu_count,
         total_ram_bytes=hardware.total_ram_bytes,
         python_version=hardware.python_version,
+        profile_name=profile_name,
     )
 
 

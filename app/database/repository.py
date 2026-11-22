@@ -46,8 +46,9 @@ def save_experiment(
     """Write one experiment and return its id.
 
     ``summary`` may be absent. Absent and unset metric fields are stored as
-    null. This function does not call ``summarize``, does not call an
-    adapter, and does not sample the machine. The caller commits.
+    null. ``profile_name`` is the snapshot's name, and a missing name is
+    stored as null. This function does not call ``summarize``, does not call
+    an adapter, and does not sample the machine. The caller commits.
     """
 
     stored = summary if summary is not None else AggregateSummary(
@@ -75,6 +76,7 @@ def save_experiment(
         logical_cpu_count=snapshot.logical_cpu_count,
         total_ram_bytes=snapshot.total_ram_bytes,
         python_version=snapshot.python_version,
+        profile_name=snapshot.profile_name,
         average_ms=stored.average_ms,
         median_ms=stored.median_ms,
         p50_ms=stored.p50_ms,
@@ -184,6 +186,7 @@ def _snapshot(experiment: ExperimentRow) -> ConfigurationSnapshot:
         logical_cpu_count=experiment.logical_cpu_count,
         total_ram_bytes=experiment.total_ram_bytes,
         python_version=experiment.python_version,
+        profile_name=experiment.profile_name,
     )
 
 

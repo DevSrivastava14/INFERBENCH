@@ -72,3 +72,28 @@ def test_build_snapshot_copies_injected_hardware_and_engine_version() -> None:
     assert snapshot.model == "gemma3:1b"
     assert snapshot.prompt == "Hi"
     assert snapshot.num_predict == 8
+    assert snapshot.profile_name is None
+
+
+def test_build_snapshot_stores_a_profile_name() -> None:
+    hardware = HardwareIdentity(
+        cpu_model="fixture-cpu",
+        logical_cpu_count=8,
+        total_ram_bytes=99,
+        python_version="3.x",
+    )
+    snapshot = build_snapshot(
+        model="gemma3:1b",
+        prompt="Hi",
+        num_predict=32,
+        warmup_count=2,
+        measured_count=3,
+        concurrency=1,
+        engine_name="ollama",
+        engine_version="0.test",
+        clock=lambda: 5.0,
+        probe=lambda: hardware,
+        profile_name="long_prompt_short_output",
+    )
+
+    assert snapshot.profile_name == "long_prompt_short_output"

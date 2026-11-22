@@ -34,6 +34,7 @@ class ExperimentRow(Base):
     logical_cpu_count: Mapped[int] = mapped_column(Integer, nullable=False)
     total_ram_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     python_version: Mapped[str] = mapped_column(String, nullable=False)
+    profile_name: Mapped[str | None] = mapped_column(String, nullable=True)
     average_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     median_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     p50_ms: Mapped[float | None] = mapped_column(Float, nullable=True)

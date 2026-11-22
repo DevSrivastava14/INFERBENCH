@@ -12,6 +12,7 @@ import contextlib
 import pytest
 
 from app.benchmark.runner import BenchmarkRunner
+from app.benchmark.workload import PROFILES
 from app.core.exceptions import ModelNotInstalledError, OllamaTimeoutError
 from app.monitoring.sampler import ResourceSample
 from app.inference.base import (
@@ -111,6 +112,27 @@ class FakeAdapter(InferenceAdapter):
         if self.fail:
             raise OllamaTimeoutError("Ollama request timed out")
         return _stream_result(clock)
+
+
+class PromptAdapter(FakeAdapter):
+    """Records the prompt and ``num_predict`` sent on each stream call."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.prompts: list[str] = []
+        self.num_predicts: list[int | None] = []
+
+    async def generate_stream(
+        self,
+        model: str,
+        prompt: str,
+        options: GenerateOptions | None = None,
+        *,
+        clock,
+    ) -> StreamGenerateResult:
+        self.prompts.append(prompt)
+        self.num_predicts.append(None if options is None else options.num_predict)
+        return await super().generate_stream(model, prompt, options, clock=clock)
 
 
 class GatedAdapter(FakeAdapter):
@@ -269,6 +291,7 @@ async def test_measured_length_equals_repetition_count() -> None:
     assert run.measured[0].model == "gemma3:1b"
     assert run.measured[0].prompt == "Hi"
     assert run.measured[0].num_predict == 8
+    assert run.profile_name is None
 
 
 @pytest.mark.asyncio
@@ -619,6 +642,30 @@ async def test_cancelled_run_keeps_samples_and_skips_unstarted_calls() -> None:
     assert adapter.measured_calls == 2
     assert len(run.measured) == 2
     assert [row.error_type for row in run.measured] == ["CancelledError", "CancelledError"]
+
+
+@pytest.mark.asyncio
+async def test_long_prompt_short_output_stores_the_name_and_sends_cap_32() -> None:
+    import app.benchmark.runner as runner_module
+
+    profile = next(item for item in PROFILES if item.name == "long_prompt_short_output")
+    adapter = PromptAdapter()
+    run = await _runner(adapter).run(
+        "gemma3:1b",
+        profile.prompt,
+        num_predict=profile.num_predict,
+        profile_name=profile.name,
+        warmup_count=1,
+        measured_count=1,
+    )
+
+    assert profile.num_predict == 32
+    assert run.profile_name == "long_prompt_short_output"
+    assert adapter.prompts == [profile.prompt, profile.prompt]
+    assert adapter.num_predicts == [32, 32]
+    assert all(row.prompt == profile.prompt for row in run.warmup + run.measured)
+    assert all(row.num_predict == 32 for row in run.warmup + run.measured)
+    assert "workload" not in vars(runner_module)
 
 
 def test_metrics_exposes_no_sampler_or_database() -> None:

@@ -120,6 +120,14 @@ Ollama may return these fields. InferBench preserves them beside the client cloc
 
 `eval_count` may supply the output-token count used in TPOT and generation throughput. Using that count does not turn those metrics into server-reported clocks. The durations in those formulas remain client-observed.
 
+## Prompt length and the output cap
+
+An experiment's prompt length is `prompt_eval_count`. That count is the server-reported prompt token count. Character length is how the prompt was built. It is not `prompt_eval_count`.
+
+`num_predict` is the output-token cap sent with the call. A longer `num_predict` is a higher cap. It is not proof the model emitted that many tokens. Output length is `eval_count`. `eval_count` can be lower than the cap.
+
+The latency, throughput, percentile, and error-rate formulas above stay as Day 6 wrote them.
+
 ## Resource samples
 
 CPU percent, system RAM, and process RAM are samples taken while a run is in flight. They are not a latency formula and they are not a throughput formula. The latency, throughput, percentile, and error-rate formulas above are unchanged.

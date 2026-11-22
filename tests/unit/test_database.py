@@ -8,6 +8,7 @@ server.
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import replace
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -117,6 +118,7 @@ def test_save_and_load_round_trips_rows_sample_and_null_p95() -> None:
         loaded = load_experiment(session, experiment_id)
 
     assert loaded.snapshot == _snapshot()
+    assert loaded.snapshot.profile_name is None
     assert loaded.warmup == (_warmup(),)
     assert loaded.measured == (_measured(),)
     assert loaded.resource_samples == (_sample(),)
@@ -147,3 +149,27 @@ def test_stored_summary_reloads_the_same_average_and_null_fields() -> None:
     assert loaded.summary == summary
     assert loaded.summary.average_ms == 12.5
     assert loaded.summary.p95_ms is None
+
+
+def test_missing_profile_name_loads_back_as_null() -> None:
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, _run(), _snapshot())
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiment(session, experiment_id)
+
+    assert _run().profile_name is None
+    assert loaded.snapshot.profile_name is None
+
+
+def test_snapshot_profile_name_loads_back() -> None:
+    snapshot = replace(_snapshot(), profile_name="long_prompt_short_output")
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, _run(), snapshot)
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiment(session, experiment_id)
+
+    assert loaded.snapshot.profile_name == "long_prompt_short_output"
