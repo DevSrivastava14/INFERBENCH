@@ -1,6 +1,6 @@
 # InferBench benchmark methodology
 
-This note is the controlled procedure for one benchmark run. It comes from the experiment procedure in the project plan. No number in this file is a measured InferBench result. Day 7 samples CPU and RAM while a run is in flight and stores the configuration snapshot, the request rows, those samples, and the aggregate summary the caller already computed. It does not recompute that summary, and it does not call a live model for a recorded timing. Day 8 runs four named workload profiles as four separate runs. The model, the warm-up count, the measured count, and the concurrency cap stay the same across those runs. The profile name is stored on the snapshot with the prompt and `num_predict`. This file still does not record a live timing.
+This note is the controlled procedure for one benchmark run. It comes from the experiment procedure in the project plan. No number in this file is a measured InferBench result. Day 7 samples CPU and RAM while a run is in flight and stores the configuration snapshot, the request rows, those samples, and the aggregate summary the caller already computed. It does not recompute that summary, and it does not call a live model for a recorded timing. Day 8 runs four named workload profiles as four separate runs. The model, the warm-up count, the measured count, and the concurrency cap stay the same across those runs. The profile name is stored on the snapshot with the prompt and `num_predict`. Day 9 runs those four profiles on both local models, eight runs in all. The profile, the warm-up count, the measured count, and the concurrency cap stay the same across those runs. The model and the think flag are what change. This file still does not record a live timing.
 
 ## Procedure
 
@@ -23,6 +23,8 @@ Day 5 left the runner performing steps 4 through 7 by streaming. Day 6 left proc
 
 Day 8 runs the four profiles as four runs. The model, the warm-up count, the measured count, and the concurrency cap stay the same across those runs. The profile name is stored with the prompt and `num_predict`. Character length is how the prompt was built. Token length is `prompt_eval_count`. Output length is `eval_count`. A longer `num_predict` is a higher cap. It is not proof the model emitted that many tokens.
 
+Day 9 runs the four profiles on both local models, eight runs in all. The models, in this order, are `qwen3.5:2b` and `gemma3:1b`. Each model runs the four profiles in catalog order. The profile, the warm-up count, the measured count, and the concurrency cap stay the same across those runs. The model and the think flag are what change. `think: false` is sent on Qwen so `eval_count` counts completion tokens. Gemma's request does not send `think`. The stored flag is false or null. Size, quantization, parameter size, and architecture come from the live tags and show payload. A missing architecture field stays unset. Qwen versus Gemma is a cross-model comparison. Experiment G is not run, and no model is downloaded. Thinking on versus off stays out.
+
 The runner checks the model first, with `show_model`, then issues warm-up stream calls, then issues the measured stream calls. Sampling starts only after `show_model` succeeds. The series covers warm-up and the measured phase. A missing model raises before any sample and before any generate call. Warm-up calls do not overlap. The measured phase limits how many stream calls are in flight to the stored cap.
 
 Cancellation stays as Day 4 wrote it. Cancellation is an explicit signal the caller can set. When it trips during the measured phase, the runner stops launching new measured calls, cancels stream calls already in flight, and returns the run. A cancelled measured attempt is recorded once, with `error_type` `CancelledError`, and is not retried. Calls that have not started are not rows. An Ollama failure still records that adapter error and does not cancel the other measured calls. A cancelled run keeps the samples already taken and stops the loop.
@@ -31,7 +33,7 @@ A sampler exception keeps the samples already taken, records the exception type 
 
 Day 6 performs procedure step 10 as pure functions on the stored measured rows. Warm-up stays out of every aggregate. The functions read the measured rows the runner already stored. They do not run the model again. The database stores that summary and does not call `summarize`.
 
-Steps 9 and 12 still wait. This day does not repeat one experiment for variance, and it does not compare a run with a baseline. The findings file may describe what the four stored summaries show. It may not recommend a profile, and it may not call one configuration an improvement.
+Steps 9 and 12 still wait. This day does not repeat one experiment for variance, and it does not compare a run with a baseline. The findings file may describe the stored summaries. It may not attribute a difference to Q8 versus Q4, recommend a model, or call one configuration an improvement. Thinking on versus off stays out.
 
 ## Warm-up
 
@@ -54,7 +56,7 @@ The caller may pass another warm-up count or repetition count inside the startin
 
 ## Workload profiles
 
-Day 8 runs four profiles as four separate runs of one model. The model is `gemma3:1b`. Warm-up stays 2. Measured calls stay 3. Concurrency stays 1. Those four settings stay the same across the four runs. A second model stays Day 9. Thinking mode stays out. `qwen3.5:2b` stays out, because its thinking tokens would land in the output count.
+Day 9 runs the four profiles on both local models, eight runs in all. The models, in this order, are `qwen3.5:2b` and `gemma3:1b`. Each model runs the four profiles in catalog order. Warm-up stays 2. Measured calls stay 3. Concurrency stays 1. Those three settings stay the same across the eight runs. One model is in a run at a time. The short prompt, the filler sentence, and the caps stay the Day 8 catalog. `think: false` is sent on Qwen so `eval_count` counts completion tokens. Gemma's request does not send `think`. The stored flag is false or null. The runner does not choose the flag from the model name. Thinking on versus off stays out.
 
 The four profile names, in this order, are `short_prompt_short_output`, `long_prompt_short_output`, `short_prompt_long_output`, and `long_prompt_long_output`.
 
@@ -136,7 +138,7 @@ Samples are not TTFT, not TPOT, not end-to-end latency, and not a throughput. Th
 
 ## Configuration snapshot
 
-The snapshot stores profile name, model, prompt, `num_predict`, warm-up count, measured count, concurrency, engine name, engine version, capture time, CPU model, logical CPU count, total RAM bytes, and Python version. The profile name is stored with the prompt and `num_predict`. A missing profile name stays unset. Hardware comes from an injectable probe. Engine name and engine version are strings the caller passes. Engine version is the string the caller stored. The runner does not fetch it.
+The snapshot stores profile name, model, prompt, `num_predict`, warm-up count, measured count, concurrency, engine name, engine version, capture time, CPU model, logical CPU count, total RAM bytes, and Python version. The profile name is stored with the prompt and `num_predict`. A missing profile name stays unset. The snapshot also stores the think flag and the model metadata the caller copied: quantization, parameter size, model size in bytes, and architecture. Those four metadata fields come from the live tags and show payload. A missing architecture field stays unset. `think: false` is sent on Qwen. Gemma's request does not send `think`. The stored flag is false or null. The runner does not choose the flag from the model name, and it does not fill quantization, parameter size, model size, or architecture. The live script copies those fields onto the snapshot. Hardware comes from an injectable probe. Engine name and engine version are strings the caller passes. Engine version is the string the caller stored. The runner does not fetch it.
 
 Concurrency remains a reproducibility field. The run stores the measured concurrency setting.
 
@@ -146,4 +148,4 @@ The database stores the snapshot, every request row, warm-up included, the resou
 
 ## What this day still does not do
 
-Steps 9 and 12 still wait. This day does not repeat one experiment for variance, and it does not compare a run with a baseline. The findings file may describe what the four stored summaries show. It may not recommend a profile, and it may not call one configuration an improvement. It does not change the model, the warm-up count, the measured count, or the concurrency cap between the four runs. It does not set the five execution states. A second model stays Day 9. Thinking mode stays out.
+Steps 9 and 12 still wait. This day does not repeat one experiment for variance, and it does not compare a run with a baseline. The findings file may describe the stored summaries. It may not attribute a difference to Q8 versus Q4, recommend a model, or call one configuration an improvement. Thinking on versus off stays out. Experiment G is not run, and no model is downloaded. Qwen versus Gemma is a cross-model comparison. It does not change the profile, the warm-up count, the measured count, or the concurrency cap between the eight runs. It does not set the five execution states.

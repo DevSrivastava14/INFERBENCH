@@ -166,6 +166,8 @@ def _generate_body(
     stream: bool,
 ) -> dict[str, Any]:
     body: dict[str, Any] = {"model": model, "prompt": prompt, "stream": stream}
+    if options is not None and options.think is not None:
+        body["think"] = options.think
     if options is not None and options.num_predict is not None:
         body["options"] = {"num_predict": options.num_predict}
     return body
@@ -185,7 +187,28 @@ def _model_info(payload: Any, *, fallback_name: str | None = None) -> ModelInfo:
         quantization=quantization,
         parameter_size=parameter_size,
         raw=payload,
+        architecture=_architecture(payload),
     )
+
+
+def _architecture(payload: dict[str, Any]) -> str | None:
+    """Use ``details.family`` when it is a string.
+
+    Otherwise use ``model_info["general.architecture"]`` when that value is
+    a string. Otherwise leave architecture unset. Do not invent a label.
+    """
+
+    details = payload.get("details")
+    if isinstance(details, dict):
+        family = details.get("family")
+        if isinstance(family, str):
+            return family
+    model_info = payload.get("model_info")
+    if isinstance(model_info, dict):
+        value = model_info.get("general.architecture")
+        if isinstance(value, str):
+            return value
+    return None
 
 
 def _detail_strings(details: Any) -> tuple[str | None, str | None]:

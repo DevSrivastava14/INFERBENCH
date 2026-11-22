@@ -335,3 +335,55 @@ Notes that are not open problems: the mocked profile run uses 1 warm-up call and
 ### Next steps
 
 Day 9: model and quantization analysis. Compare the available local models. A quantization comparison still needs compatible variants of one model. Do not treat a Day 8 live duration, a CPU sample, or a timing from these mocked tests, as a benchmark result. Do not copy a figure from `docs/workload-findings.md` into `LEARN.md` or into a pytest assertion.
+
+## 2026-11-22 — Day 9: Model and Quantization Analysis
+
+### Five-line summary
+
+Day 9 is model and quantization analysis: eight runs cross `qwen3.5:2b` and `gemma3:1b` with the four workload profiles. Nothing from earlier days failed, so there is no fix-first work. Qwen requests send `think` false and that flag is stored; Gemma omits it, and thinking on versus off stays later. No same-model quantization pair was on the tags list, so Experiment G was not run, and the findings stay a cross-model comparison. The day is done when mocked pytest passes and the findings file matches the stored rows.
+
+### Completed
+
+- Updated `docs/methodology.md` so Day 9 runs the four profiles on both local models, eight runs in all. The models, in this order, are `qwen3.5:2b` and `gemma3:1b`. Each model runs the four profiles in catalog order. Warm-up stays 2. Measured calls stay 3. Concurrency stays 1. Those three settings stay the same across the eight runs. One model is in a run at a time. `think: false` is sent on Qwen so `eval_count` counts completion tokens. Gemma's request does not send `think`. The stored flag is false or null. The runner does not choose the flag from the model name. Size, quantization, parameter size, and architecture come from the live tags and show payload. A missing architecture field stays unset. Qwen versus Gemma is a cross-model comparison. Experiment G is not run, and no model is downloaded. Steps 9 and 12 still wait. The findings file may describe the stored summaries. It may not attribute a difference to Q8 versus Q4, recommend a model, or call one configuration an improvement. Thinking on versus off stays out.
+- Pointed `docs/architecture.md` at the top-level `think` field. The snapshot stores the flag and the model metadata the caller copied. `app/benchmark/` still does not own percentile math, still does not import metrics, and still does not open SQLite. The live script is the caller that opens the database. `app/optimization/` was not added. `app/metrics/` still does not call Ollama and does not call `psutil`.
+- Recorded in `docs/metrics.md` that a model comparison uses the existing formulas and that quantization is not a latency formula. `think: false` is configuration. TTFT and TPOT stay per-row functions. They are not new aggregate formulas. The latency, throughput, percentile, and error-rate formulas stay as Day 6 wrote them. The percentile formula cell still says "P50 is the middle."
+- Added `think: bool | None = None` on `GenerateOptions`. When it is set, `_generate_body` sets `body["think"]` beside `stream`. When it is omitted, the key is absent. `num_predict` stays under `options`. Non-streaming `generate` shares that helper and still does not compute TTFT, TPOT, or percentiles. `ModelInfo.architecture` uses `details.family` when that value is a string, otherwise `model_info["general.architecture"]` when that value is a string, and otherwise stays unset.
+- `run()` takes `think` and stores it on `BenchmarkRun`. It does not choose the flag from the model name. It does not fill quantization, parameter size, model size, or architecture. `ConfigurationSnapshot` and `build_snapshot` take `think`, `quantization`, `parameter_size`, `model_size_bytes`, and `architecture`, each defaulting to unset. `save_experiment` writes them. `load_experiment` returns them. `think` false loads back as false. An omitted think loads back as null. The database still does not call `summarize`, `ttft_ms`, or `tpot_ms`. The runner still does not set `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, or `CANCELLED`. The request timeout stays 120 seconds.
+- Added `scripts/run_model_comparison.py`. It refuses to run if the adapter timeout is not 120 seconds. Before deleting any file, it calls `show_model` for both local models and reads `list_models`. It ignores `gemma4:31b-cloud` and `deepseek-v4.1-flash:cloud`. No same-architecture quantization pair was in that list. The script does not download a model. It then runs eight experiments: all four profiles on `qwen3.5:2b` with `think=False`, then all four on `gemma3:1b` with `think` omitted. For each one it reads the engine version, builds the snapshot with `psutil_hardware_probe` and the real clock, and runs with `psutil_probe` through `read_sample` at a 1-second interval. Show payloads omit size, so size is copied from the tags `ModelInfo` when show leaves it unset. The script calls `summarize`, then `save_experiment`. The runner does not. SQLite is `experiments/results/model-comparison.sqlite`. `docs/model-findings.md` was written from the eight experiments loaded back out. The file states that the timeout was the adapter default of 120 seconds, that the measured count is 3, that the file is a cross-model comparison, that Experiment G was not run, that thinking on versus off was not run, and that the file does not recommend a model. On the long-output profiles, the stored `eval_count` is lower than the cap. No stored `error_type` was set. No figure from that file was copied into `LEARN.md`, `PROGRESS.md`, or a pytest assertion.
+
+### Files changed
+
+- `docs/methodology.md` (updated)
+- `docs/architecture.md` (updated)
+- `docs/metrics.md` (updated)
+- `app/inference/base.py` (updated)
+- `app/inference/ollama.py` (updated)
+- `app/benchmark/records.py` (updated)
+- `app/benchmark/runner.py` (updated)
+- `app/monitoring/snapshot.py` (updated)
+- `app/database/models.py` (updated)
+- `app/database/repository.py` (updated)
+- `tests/unit/test_ollama.py` (updated)
+- `tests/unit/test_benchmark.py` (updated)
+- `tests/unit/test_database.py` (updated)
+- `tests/unit/test_model_comparison.py` (added)
+- `scripts/run_model_comparison.py` (added)
+- `experiments/results/model-comparison.sqlite` (added)
+- `docs/model-findings.md` (added)
+
+### Test results
+
+`python -m pytest`: 75 passed in 1.38s. Fourteen tests are new, and the existing 61 still pass. The run uses the fake adapter, the fake clock, constructed rows, and the httpx mock transport. It does not contact Ollama. No test asserts a latency number from a live server. Pytest does not collect the live script, and it does not read `docs/model-findings.md` for an expected timing. A fresh load of the eight stored experiments reproduced that file, including per-row TTFT and TPOT from the latency functions.
+
+### Problems
+
+None left open.
+
+Nothing failed in the suite, and no product fix was attempted. The first launch of `python scripts/run_model_comparison.py` exited 0.
+
+Notes that are not open problems: the database round-trip uses the Day 2 Qwen size integer, which also appears in the findings file. The new findings test asserts TTFT and TPOT from constructed clocks, start 1 second, first content 1.5 seconds, end 2 seconds, and `eval_count` 3. Those numbers are a fixture, and the test does not read the findings file. No test calls `run` on `qwen3.5:2b` without `think` and checks that the flag stays unset. The HTTP assertion for top-level `think: false` is on non-streaming `generate`. Streaming uses the same body helper. This live series did not include a system CPU sample of 0. The script keeps a 0 if one is taken. If `show_model` fails after the opening check, the script has already removed any earlier findings file and can leave a partial SQLite file. This run finished all eight profiles. `LEARN.md` and `docs/day1-check.md` were already modified in the working tree. They were not edited today, and they do not hold a figure from the findings file. Day 2, Day 3, Day 4, Day 5, Day 6, Day 7, and Day 8 notes were left as notes.
+
+### Next steps
+
+Day 10: CPU and serving optimization. Threading, concurrency, serving parameters, and resource utilization stay on that day, and only settings the engine supports. Thinking on versus off, a same-model quantization run, and baseline comparison stay later. Do not treat a Day 9 live duration, a CPU sample, or a timing from these mocked tests, as a benchmark result. Do not copy a figure from `docs/model-findings.md` into `LEARN.md` or into a pytest assertion.
+

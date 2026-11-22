@@ -2,8 +2,8 @@
 
 ``save_experiment`` writes the snapshot, every request row, the resource
 samples, and the aggregate columns. ``load_experiment`` returns those stored
-values. It does not call ``summarize``, it does not rank percentiles, and it
-does not recompute throughput.
+values. It does not call ``summarize``, ``ttft_ms``, or ``tpot_ms``. It does
+not rank percentiles, and it does not recompute throughput.
 """
 
 from __future__ import annotations
@@ -47,8 +47,11 @@ def save_experiment(
 
     ``summary`` may be absent. Absent and unset metric fields are stored as
     null. ``profile_name`` is the snapshot's name, and a missing name is
-    stored as null. This function does not call ``summarize``, does not call
-    an adapter, and does not sample the machine. The caller commits.
+    stored as null. ``think`` false is stored as false. An omitted think flag
+    is stored as null. Quantization, parameter size, model size, and
+    architecture are the snapshot's values. This function does not call
+    ``summarize``, ``ttft_ms``, or ``tpot_ms``, does not call an adapter, and
+    does not sample the machine. The caller commits.
     """
 
     stored = summary if summary is not None else AggregateSummary(
@@ -77,6 +80,11 @@ def save_experiment(
         total_ram_bytes=snapshot.total_ram_bytes,
         python_version=snapshot.python_version,
         profile_name=snapshot.profile_name,
+        think=snapshot.think,
+        quantization=snapshot.quantization,
+        parameter_size=snapshot.parameter_size,
+        model_size_bytes=snapshot.model_size_bytes,
+        architecture=snapshot.architecture,
         average_ms=stored.average_ms,
         median_ms=stored.median_ms,
         p50_ms=stored.p50_ms,
@@ -187,6 +195,11 @@ def _snapshot(experiment: ExperimentRow) -> ConfigurationSnapshot:
         total_ram_bytes=experiment.total_ram_bytes,
         python_version=experiment.python_version,
         profile_name=experiment.profile_name,
+        think=experiment.think,
+        quantization=experiment.quantization,
+        parameter_size=experiment.parameter_size,
+        model_size_bytes=experiment.model_size_bytes,
+        architecture=experiment.architecture,
     )
 
 

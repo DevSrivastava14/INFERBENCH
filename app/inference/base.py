@@ -22,6 +22,7 @@ class ModelInfo:
     quantization: str | None
     parameter_size: str | None
     raw: dict[str, Any]
+    architecture: str | None = None
 
 
 @dataclass(frozen=True)
@@ -29,10 +30,13 @@ class GenerateOptions:
     """The small options object accepted by a generate call.
 
     ``num_predict`` caps how many tokens the server may generate. When it is
-    omitted, the adapter does not send an options object.
+    omitted, the adapter does not send an options object. ``think`` is sent
+    as a top-level generate field when it is set. When it is omitted, that
+    key is absent.
     """
 
     num_predict: int | None = None
+    think: bool | None = None
 
 
 @dataclass(frozen=True)

@@ -121,6 +121,7 @@ class PromptAdapter(FakeAdapter):
         super().__init__()
         self.prompts: list[str] = []
         self.num_predicts: list[int | None] = []
+        self.thinks: list[bool | None] = []
 
     async def generate_stream(
         self,
@@ -132,6 +133,7 @@ class PromptAdapter(FakeAdapter):
     ) -> StreamGenerateResult:
         self.prompts.append(prompt)
         self.num_predicts.append(None if options is None else options.num_predict)
+        self.thinks.append(None if options is None else options.think)
         return await super().generate_stream(model, prompt, options, clock=clock)
 
 
@@ -661,11 +663,55 @@ async def test_long_prompt_short_output_stores_the_name_and_sends_cap_32() -> No
 
     assert profile.num_predict == 32
     assert run.profile_name == "long_prompt_short_output"
+    assert run.think is None
     assert adapter.prompts == [profile.prompt, profile.prompt]
     assert adapter.num_predicts == [32, 32]
+    assert adapter.thinks == [None, None]
     assert all(row.prompt == profile.prompt for row in run.warmup + run.measured)
     assert all(row.num_predict == 32 for row in run.warmup + run.measured)
     assert "workload" not in vars(runner_module)
+
+
+@pytest.mark.asyncio
+async def test_qwen_long_prompt_short_output_stores_the_name_and_sends_think_false() -> None:
+    profile = next(item for item in PROFILES if item.name == "long_prompt_short_output")
+    adapter = PromptAdapter()
+    run = await _runner(adapter).run(
+        "qwen3.5:2b",
+        profile.prompt,
+        num_predict=profile.num_predict,
+        profile_name=profile.name,
+        think=False,
+        warmup_count=1,
+        measured_count=1,
+    )
+
+    assert profile.num_predict == 32
+    assert run.profile_name == "long_prompt_short_output"
+    assert run.think is False
+    assert adapter.num_predicts == [32, 32]
+    assert adapter.thinks == [False, False]
+    assert all(row.num_predict == 32 for row in run.warmup + run.measured)
+
+
+@pytest.mark.asyncio
+async def test_long_output_profile_sends_cap_128() -> None:
+    profile = next(item for item in PROFILES if item.name == "short_prompt_long_output")
+    adapter = PromptAdapter()
+    run = await _runner(adapter).run(
+        "gemma3:1b",
+        profile.prompt,
+        num_predict=profile.num_predict,
+        profile_name=profile.name,
+        warmup_count=1,
+        measured_count=1,
+    )
+
+    assert profile.num_predict == 128
+    assert run.profile_name == "short_prompt_long_output"
+    assert run.think is None
+    assert adapter.num_predicts == [128, 128]
+    assert adapter.thinks == [None, None]
 
 
 def test_metrics_exposes_no_sampler_or_database() -> None:

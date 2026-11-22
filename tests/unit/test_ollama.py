@@ -69,6 +69,7 @@ async def test_tags_parses_name_size_quantization_and_parameter_size() -> None:
     assert info.size == 806
     assert info.quantization == "Q4_K_M"
     assert info.parameter_size == "999.89M"
+    assert info.architecture is None
     assert info.raw == TAGS_MODEL
 
 
@@ -86,6 +87,7 @@ async def test_show_parses_name_size_quantization_and_parameter_size() -> None:
     assert info.size == 2683
     assert info.quantization == "Q8_0"
     assert info.parameter_size == "1.9B"
+    assert info.architecture is None
     assert info.raw == SHOW_MODEL
 
 
@@ -147,6 +149,7 @@ async def test_generate_returns_text_and_raw_metadata() -> None:
         assert body["model"] == "gemma3:1b"
         assert body["prompt"] == "Hi"
         assert body["stream"] is False
+        assert "think" not in body
         assert body["options"] == {"num_predict": 8}
         return httpx.Response(200, json=GENERATE_BODY)
 
@@ -181,6 +184,7 @@ async def test_stream_chunk_count_stays_apart_from_eval_count() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         assert body["stream"] is True
+        assert "think" not in body
         assert body["options"] == {"num_predict": 8}
         raw = "\n".join(json.dumps(line) for line in lines).encode()
         return httpx.Response(200, content=raw)
@@ -242,6 +246,71 @@ async def test_leading_empty_response_stamps_the_later_piece(monkeypatch: pytest
     assert result.chunk_count == 3
     assert stamped_at_object == [2]
     assert result.first_content_at == 4.0
+
+
+@pytest.mark.asyncio
+async def test_generate_sends_think_false_beside_stream() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["model"] == "qwen3.5:2b"
+        assert body["stream"] is False
+        assert body["think"] is False
+        assert body["options"] == {"num_predict": 32}
+        return httpx.Response(200, json=GENERATE_BODY)
+
+    result = await _adapter(handler).generate(
+        "qwen3.5:2b",
+        "Hi",
+        GenerateOptions(num_predict=32, think=False),
+    )
+
+    assert result.text == "Hello"
+    assert result.metadata["eval_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_show_uses_details_family_when_it_is_a_string() -> None:
+    payload = {
+        "name": "qwen3.5:2b",
+        "size": 2683,
+        "details": {
+            "family": "qwen35",
+            "parameter_size": "1.9B",
+            "quantization_level": "Q8_0",
+        },
+        "model_info": {"general.architecture": "other"},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    info = await _adapter(handler).show_model("qwen3.5:2b")
+
+    assert info.architecture == "qwen35"
+    assert info.quantization == "Q8_0"
+    assert info.parameter_size == "1.9B"
+    assert info.size == 2683
+
+
+@pytest.mark.asyncio
+async def test_show_uses_general_architecture_when_family_is_not_a_string() -> None:
+    payload = {
+        "name": "gemma3:1b",
+        "size": 806,
+        "details": {
+            "family": 1,
+            "parameter_size": "999.89M",
+            "quantization_level": "Q4_K_M",
+        },
+        "model_info": {"general.architecture": "gemma3"},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    info = await _adapter(handler).show_model("gemma3:1b")
+
+    assert info.architecture == "gemma3"
 
 
 @pytest.mark.asyncio

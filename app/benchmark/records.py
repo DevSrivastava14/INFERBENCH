@@ -50,9 +50,11 @@ class BenchmarkRun:
     ``concurrency`` is the measured-phase cap the caller requested. Warm-up
     does not use that cap. ``resource_samples`` is empty when the run had no
     sampler. ``sampling_error`` is the exception type name when the sampler
-    stopped, and is unset otherwise. ``profile_name`` is the name the caller
-    passed. It is unset when the caller omits it. This object does not look
-    up a profile catalog.
+    stopped, and is unset otherwise.     ``profile_name`` is the name the caller
+    passed. It is unset when the caller omits it. ``think`` is the flag the
+    caller passed. It is unset when the caller omits it. This object does
+    not look up a profile catalog, and it does not choose ``think`` from the
+    model name.
     """
 
     warmup: tuple[RequestRecord, ...]
@@ -61,3 +63,4 @@ class BenchmarkRun:
     resource_samples: tuple[ResourceSample, ...] = ()
     sampling_error: str | None = None
     profile_name: str | None = None
+    think: bool | None = None

@@ -128,6 +128,14 @@ An experiment's prompt length is `prompt_eval_count`. That count is the server-r
 
 The latency, throughput, percentile, and error-rate formulas above stay as Day 6 wrote them.
 
+## Model comparison
+
+A model comparison uses the existing formulas. Quantization is not a latency formula. `think: false` is configuration. It is not a metric.
+
+TTFT and TPOT stay the per-row functions in `app/metrics/latency.py`. They are not new aggregate formulas. The latency, throughput, percentile, and error-rate formulas above stay as Day 6 wrote them.
+
+Size, quantization, parameter size, and architecture are metadata from the live tags and show payload. A missing architecture field stays unset. Qwen versus Gemma is a cross-model comparison. Those metadata fields are not substituted into TTFT, TPOT, throughput, or a percentile.
+
 ## Resource samples
 
 CPU percent, system RAM, and process RAM are samples taken while a run is in flight. They are not a latency formula and they are not a throughput formula. The latency, throughput, percentile, and error-rate formulas above are unchanged.

@@ -173,3 +173,42 @@ def test_snapshot_profile_name_loads_back() -> None:
         loaded = load_experiment(session, experiment_id)
 
     assert loaded.snapshot.profile_name == "long_prompt_short_output"
+
+
+def test_omitted_think_flag_loads_back_as_null() -> None:
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, _run(), _snapshot())
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiment(session, experiment_id)
+
+    assert _snapshot().think is None
+    assert loaded.snapshot.think is None
+    assert loaded.snapshot.quantization is None
+    assert loaded.snapshot.parameter_size is None
+    assert loaded.snapshot.model_size_bytes is None
+    assert loaded.snapshot.architecture is None
+
+
+def test_think_false_and_model_metadata_load_back() -> None:
+    snapshot = replace(
+        _snapshot(),
+        think=False,
+        quantization="Q8_0",
+        parameter_size="1.9B",
+        model_size_bytes=2683396812,
+        architecture="qwen35",
+    )
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, _run(), snapshot)
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiment(session, experiment_id)
+
+    assert loaded.snapshot.think is False
+    assert loaded.snapshot.quantization == "Q8_0"
+    assert loaded.snapshot.parameter_size == "1.9B"
+    assert loaded.snapshot.model_size_bytes == 2683396812
+    assert loaded.snapshot.architecture == "qwen35"

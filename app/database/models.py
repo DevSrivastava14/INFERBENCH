@@ -6,7 +6,7 @@ stores ``success`` and ``error_type``. There is no execution-state column.
 
 from __future__ import annotations
 
-from sqlalchemy import Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -35,6 +35,11 @@ class ExperimentRow(Base):
     total_ram_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     python_version: Mapped[str] = mapped_column(String, nullable=False)
     profile_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    think: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    quantization: Mapped[str | None] = mapped_column(String, nullable=True)
+    parameter_size: Mapped[str | None] = mapped_column(String, nullable=True)
+    model_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    architecture: Mapped[str | None] = mapped_column(String, nullable=True)
     average_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     median_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     p50_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
