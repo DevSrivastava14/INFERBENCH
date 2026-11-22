@@ -29,14 +29,16 @@ class ModelInfo:
 class GenerateOptions:
     """The small options object accepted by a generate call.
 
-    ``num_predict`` caps how many tokens the server may generate. When it is
-    omitted, the adapter does not send an options object. ``think`` is sent
-    as a top-level generate field when it is set. When it is omitted, that
+    ``num_predict`` caps how many tokens the server may generate. ``num_thread``
+    is the serving thread count. Each one is placed in the options object when
+    it is set. When ``num_thread`` is omitted, that key is absent. ``think`` is
+    sent as a top-level generate field when it is set. When it is omitted, that
     key is absent.
     """
 
     num_predict: int | None = None
     think: bool | None = None
+    num_thread: int | None = None
 
 
 @dataclass(frozen=True)

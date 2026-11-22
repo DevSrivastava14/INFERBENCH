@@ -26,10 +26,10 @@ class ConfigurationSnapshot:
 
     ``engine_version`` is the string the caller passed. This object does not
     fetch it. ``profile_name`` is the name the caller passed. It is unset
-    when the caller omits it. ``think``, ``quantization``, ``parameter_size``,
-    ``model_size_bytes``, and ``architecture`` are the values the caller
-    passed. Each is unset when the caller omits it. This object does not
-    look up a profile catalog and does not call Ollama.
+    when the caller omits it. ``think``, ``num_thread``, ``quantization``,
+    ``parameter_size``, ``model_size_bytes``, and ``architecture`` are the
+    values the caller passed. Each is unset when the caller omits it. This
+    object does not look up a profile catalog and does not call Ollama.
     """
 
     model: str
@@ -47,6 +47,7 @@ class ConfigurationSnapshot:
     python_version: str
     profile_name: str | None = None
     think: bool | None = None
+    num_thread: int | None = None
     quantization: str | None = None
     parameter_size: str | None = None
     model_size_bytes: int | None = None
@@ -79,6 +80,7 @@ def build_snapshot(
     probe: Callable[[], HardwareIdentity],
     profile_name: str | None = None,
     think: bool | None = None,
+    num_thread: int | None = None,
     quantization: str | None = None,
     parameter_size: str | None = None,
     model_size_bytes: int | None = None,
@@ -87,9 +89,9 @@ def build_snapshot(
     """Combine caller fields with hardware from ``probe``.
 
     Capture time is one reading of ``clock``. Engine name and engine version
-    are the strings the caller passed. ``profile_name`` and the model
-    metadata fields are stored as given. This function does not fill them
-    from a model name.
+    are the strings the caller passed. ``profile_name``, ``num_thread``, and
+    the model metadata fields are stored as given. This function does not
+    fill them from a model name or from the logical CPU count.
     """
 
     hardware = capture_hardware(probe)
@@ -109,6 +111,7 @@ def build_snapshot(
         python_version=hardware.python_version,
         profile_name=profile_name,
         think=think,
+        num_thread=num_thread,
         quantization=quantization,
         parameter_size=parameter_size,
         model_size_bytes=model_size_bytes,

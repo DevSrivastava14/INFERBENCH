@@ -212,3 +212,27 @@ def test_think_false_and_model_metadata_load_back() -> None:
     assert loaded.snapshot.parameter_size == "1.9B"
     assert loaded.snapshot.model_size_bytes == 2683396812
     assert loaded.snapshot.architecture == "qwen35"
+
+
+def test_omitted_num_thread_loads_back_as_null() -> None:
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, _run(), _snapshot())
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiment(session, experiment_id)
+
+    assert _snapshot().num_thread is None
+    assert loaded.snapshot.num_thread is None
+
+
+def test_stored_num_thread_4_loads_back_as_4() -> None:
+    snapshot = replace(_snapshot(), num_thread=4)
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, _run(), snapshot)
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiment(session, experiment_id)
+
+    assert loaded.snapshot.num_thread == 4

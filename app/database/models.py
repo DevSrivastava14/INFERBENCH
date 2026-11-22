@@ -36,6 +36,7 @@ class ExperimentRow(Base):
     python_version: Mapped[str] = mapped_column(String, nullable=False)
     profile_name: Mapped[str | None] = mapped_column(String, nullable=True)
     think: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    num_thread: Mapped[int | None] = mapped_column(Integer, nullable=True)
     quantization: Mapped[str | None] = mapped_column(String, nullable=True)
     parameter_size: Mapped[str | None] = mapped_column(String, nullable=True)
     model_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)

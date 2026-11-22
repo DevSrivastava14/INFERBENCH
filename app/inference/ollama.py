@@ -168,8 +168,13 @@ def _generate_body(
     body: dict[str, Any] = {"model": model, "prompt": prompt, "stream": stream}
     if options is not None and options.think is not None:
         body["think"] = options.think
+    request_options: dict[str, int] = {}
     if options is not None and options.num_predict is not None:
-        body["options"] = {"num_predict": options.num_predict}
+        request_options["num_predict"] = options.num_predict
+    if options is not None and options.num_thread is not None:
+        request_options["num_thread"] = options.num_thread
+    if request_options:
+        body["options"] = request_options
     return body
 
 

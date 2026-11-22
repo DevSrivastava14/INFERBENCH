@@ -387,3 +387,52 @@ Notes that are not open problems: the database round-trip uses the Day 2 Qwen si
 
 Day 10: CPU and serving optimization. Threading, concurrency, serving parameters, and resource utilization stay on that day, and only settings the engine supports. Thinking on versus off, a same-model quantization run, and baseline comparison stay later. Do not treat a Day 9 live duration, a CPU sample, or a timing from these mocked tests, as a benchmark result. Do not copy a figure from `docs/model-findings.md` into `LEARN.md` or into a pytest assertion.
 
+## 2026-11-22 — Day 10: CPU and Serving Optimization
+
+### Five-line summary
+
+Day 10 is CPU and serving configuration: five runs on `gemma3:1b`, then the same five on `qwen3.5:2b`, both on `short_prompt_short_output`, vary client concurrency and `num_thread` one factor at a time. Nothing from earlier days failed, so there is no fix-first work. Gemma omits `think`. Qwen sends `think` false, and thinking is not turned on. Concurrency 8, context length, a same-model quantization run, and baseline comparison stay later. The day is done when mocked pytest passes and the findings file matches the stored rows.
+
+### Completed
+
+- Updated `docs/methodology.md` so Day 10 runs five serving configurations on `gemma3:1b`, then the same five on `qwen3.5:2b`. The profile is `short_prompt_short_output`. Warm-up stays 2. Measured calls stay 3. The profile, the warm-up count, and the measured count stay the same across those runs. The concurrency sweep is runs 1–3: concurrency 1, then 2, then 4, and `num_thread` is omitted. The thread sweep is runs 4–5: concurrency stays 1, and `num_thread` is 4, then the hardware probe's logical CPU count. Gemma's request does not send `think`. Qwen sends `think` false. Thinking is not turned on. An omitted `num_thread` stays unset. It is not stored as 0. Concurrency 8 and `num_ctx` stay unvaried. Steps 9 and 12 still wait. The findings file may describe the stored summaries. It may not recommend a thread count or a concurrency cap, or call one configuration an improvement. Resource samples are not latency.
+- Pointed `docs/architecture.md` at `options.num_thread` beside `num_predict`. The snapshot stores the thread value the caller passed, or leaves it unset. `app/benchmark/` still does not own percentile math, still does not import metrics, and still does not open SQLite. The live script is the caller that opens the database. `app/optimization/` was not added. `app/metrics/` still does not call Ollama and does not call `psutil`.
+- Recorded in `docs/metrics.md` that a serving comparison uses the existing formulas, and that `num_thread` and the concurrency cap are configuration. `think: false` on Qwen is configuration. A CPU sample is not a latency. The latency, throughput, percentile, and error-rate formulas stay as Day 6 wrote them. The percentile formula cell still says "P50 is the middle."
+- Added `num_thread: int | None = None` on `GenerateOptions`. When it is set, `_generate_body` puts `num_thread` in the same `options` object as `num_predict`. When it is omitted, that key is absent. `think` stays a top-level field. Non-streaming `generate` shares that helper and still does not compute TTFT, TPOT, or percentiles. `run()` takes `num_thread` and stores it on `BenchmarkRun`. The runner does not choose it from the model name or from the logical CPU count. `ConfigurationSnapshot`, `build_snapshot`, and `ExperimentRow` store it. `save_experiment` writes the snapshot value. `load_experiment` returns it. An omitted value loads back as null. A stored 4 loads back as 4. The database still does not call `summarize`, `ttft_ms`, or `tpot_ms`.
+- Added `scripts/run_serving_config.py`. It refuses to run if the adapter timeout is not 120 seconds. Before deleting any file, it calls `show_model` for `gemma3:1b` and `qwen3.5:2b`. If the logical CPU count from `psutil_hardware_probe` is under 12, it exits before any generate and does not write findings. It then runs ten experiments: the five configurations on `gemma3:1b` with `think` omitted, then the same five on `qwen3.5:2b` with `think=False`. The script calls `summarize`, then `save_experiment`. The runner does not. SQLite is `experiments/results/serving-config.sqlite`. `docs/serving-findings.md` was written from the ten experiments loaded back out. The file states that the timeout was the adapter default of 120 seconds, that the measured count is 3, that Gemma's request does not send `think`, that Qwen was run with `think` false, that thinking was not turned on, that concurrency 8 and `num_ctx` were not varied, and that the file does not recommend a setting. No stored `error_type` was set. The logical CPU count was not under 12, so the high thread setting was that probe count. No figure from that file was copied into `LEARN.md`, `PROGRESS.md`, or a pytest assertion.
+
+### Files changed
+
+- `docs/methodology.md` (updated)
+- `docs/architecture.md` (updated)
+- `docs/metrics.md` (updated)
+- `app/inference/base.py` (updated)
+- `app/inference/ollama.py` (updated)
+- `app/benchmark/records.py` (updated)
+- `app/benchmark/runner.py` (updated)
+- `app/monitoring/snapshot.py` (updated)
+- `app/database/models.py` (updated)
+- `app/database/repository.py` (updated)
+- `tests/unit/test_ollama.py` (updated)
+- `tests/unit/test_benchmark.py` (updated)
+- `tests/unit/test_database.py` (updated)
+- `scripts/run_serving_config.py` (added)
+- `experiments/results/serving-config.sqlite` (added)
+- `docs/serving-findings.md` (added)
+
+### Test results
+
+`python -m pytest`: 83 passed in 0.71s. Eight tests are new, and the existing 75 still pass. The run uses the fake adapter, the fake clock, constructed rows, and the httpx mock transport. It does not contact Ollama. No test asserts a latency number from a live server. Pytest does not collect the live script, and it does not read `docs/serving-findings.md` for an expected timing. A fresh load of the ten stored experiments reproduced that file, including per-row TTFT and TPOT from the latency functions.
+
+### Problems
+
+None left open.
+
+One draft of the live script nested the Qwen loop and left `save_experiment` outside the inner loop. That draft would have stored only the last run of each model. The save was moved inside the loop before the script was launched. The launch exited 0.
+
+Notes that are not open problems: the mocked serving runs use 1 warm-up call and 1 measured call. `save_experiment` writes the snapshot's `num_thread`, so a value set only on the run would load back as null. The live script sets both. The HTTP assertion for `options.num_thread` beside `num_predict` is on non-streaming `generate`. Streaming uses the same body helper. The script's timeout refusal and its stop for a logical CPU count under 12 have no pytest. If `engine_version` fails after the opening `show_model` checks, the script has already removed any earlier findings file and can leave a partial SQLite file. This run finished all ten configurations. The closing paragraph in `docs/methodology.md` states the Qwen `think` false rule twice. `TODAY.md` still says Qwen is not run. The Qwen grid was added because it was requested, with `think` false and without `think` true. `LEARN.md` and `docs/day1-check.md` were already modified in the working tree. They were not edited today, and they do not hold a figure from the findings file. Day 2 through Day 9 notes were left as notes.
+
+### Next steps
+
+Day 11: performance analysis. Baseline comparison, bottleneck identification, and experiment comparison stay on that day. Thinking on versus off, concurrency 8, `num_ctx`, and a same-model quantization run stay later. Do not treat a Day 10 live duration, a CPU sample, or a timing from these mocked tests, as a benchmark result. Do not copy a figure from `docs/serving-findings.md` into `LEARN.md` or into a pytest assertion.
+

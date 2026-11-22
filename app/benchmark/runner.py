@@ -8,8 +8,10 @@ in-flight stream calls, and records each started attempt once. A failed
 call is recorded and is not retried. An optional sampler records resource
 samples after the model check. ``profile_name`` is stored on the run when
 the caller passes it. ``think`` is stored on the run when the caller passes
-it. This module does not look up a profile catalog, and it does not choose
-``think`` from the model name. It does not fill quantization, parameter
+it. ``num_thread`` is stored on the run when the caller passes it. This
+module does not look up a profile catalog, and it does not choose ``think``
+from the model name. It does not choose ``num_thread`` from the model name
+or from the logical CPU count. It does not fill quantization, parameter
 size, model size, or architecture. It does not compute TTFT, TPOT,
 throughput, or percentiles, and it does not open a database.
 """
@@ -58,6 +60,7 @@ class BenchmarkRunner:
         concurrency: int = 1,
         profile_name: str | None = None,
         think: bool | None = None,
+        num_thread: int | None = None,
         cancel_event: asyncio.Event | None = None,
         sampler: Callable[[], ResourceSample] | None = None,
         sample_interval: float = 1.0,
@@ -71,8 +74,10 @@ class BenchmarkRunner:
         not use the cap and does not overlap. A sampler starts only after
         ``show_model`` succeeds. The default sleep is ``asyncio.sleep``.
         ``profile_name`` is stored as given. ``think`` is stored as given.
-        Prompt and ``num_predict`` still come from the arguments above. The
-        runner does not choose ``think`` from the model name.
+        ``num_thread`` is stored as given. Prompt, ``num_predict``, ``think``,
+        and concurrency still come from the arguments above. The runner does
+        not choose ``think`` from the model name, and it does not choose
+        ``num_thread`` from the model name or from the logical CPU count.
         """
         if warmup_count < 0:
             raise ValueError("warmup_count must be zero or greater")
@@ -84,10 +89,14 @@ class BenchmarkRunner:
             raise ValueError("sample_interval must be greater than 0")
 
         await self._adapter.show_model(model)
-        if num_predict is None and think is None:
+        if num_predict is None and think is None and num_thread is None:
             options = None
         else:
-            options = GenerateOptions(num_predict=num_predict, think=think)
+            options = GenerateOptions(
+                num_predict=num_predict,
+                think=think,
+                num_thread=num_thread,
+            )
         samples: list[ResourceSample] = []
         sampling_errors: list[str] = []
         sample_task: asyncio.Task[None] | None = None
@@ -132,6 +141,7 @@ class BenchmarkRunner:
             sampling_error=sampling_errors[0] if sampling_errors else None,
             profile_name=profile_name,
             think=think,
+            num_thread=num_thread,
         )
 
     async def _measured_phase(

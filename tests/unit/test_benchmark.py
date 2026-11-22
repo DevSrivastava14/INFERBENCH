@@ -122,6 +122,7 @@ class PromptAdapter(FakeAdapter):
         self.prompts: list[str] = []
         self.num_predicts: list[int | None] = []
         self.thinks: list[bool | None] = []
+        self.num_threads: list[int | None] = []
 
     async def generate_stream(
         self,
@@ -134,6 +135,7 @@ class PromptAdapter(FakeAdapter):
         self.prompts.append(prompt)
         self.num_predicts.append(None if options is None else options.num_predict)
         self.thinks.append(None if options is None else options.think)
+        self.num_threads.append(None if options is None else options.num_thread)
         return await super().generate_stream(model, prompt, options, clock=clock)
 
 
@@ -712,6 +714,101 @@ async def test_long_output_profile_sends_cap_128() -> None:
     assert run.think is None
     assert adapter.num_predicts == [128, 128]
     assert adapter.thinks == [None, None]
+
+
+@pytest.mark.asyncio
+async def test_concurrency_4_short_profile_stores_4_and_omits_num_thread() -> None:
+    profile = next(item for item in PROFILES if item.name == "short_prompt_short_output")
+    adapter = PromptAdapter()
+    run = await _runner(adapter).run(
+        "gemma3:1b",
+        profile.prompt,
+        num_predict=profile.num_predict,
+        profile_name=profile.name,
+        concurrency=4,
+        warmup_count=1,
+        measured_count=1,
+    )
+
+    assert profile.num_predict == 32
+    assert run.profile_name == "short_prompt_short_output"
+    assert run.concurrency == 4
+    assert run.num_thread is None
+    assert run.think is None
+    assert adapter.num_predicts == [32, 32]
+    assert adapter.num_threads == [None, None]
+    assert adapter.thinks == [None, None]
+
+
+@pytest.mark.asyncio
+async def test_num_thread_4_stores_4_sends_cap_32_and_keeps_concurrency_1() -> None:
+    profile = next(item for item in PROFILES if item.name == "short_prompt_short_output")
+    adapter = PromptAdapter()
+    run = await _runner(adapter).run(
+        "gemma3:1b",
+        profile.prompt,
+        num_predict=profile.num_predict,
+        profile_name=profile.name,
+        num_thread=4,
+        warmup_count=1,
+        measured_count=1,
+    )
+
+    assert profile.num_predict == 32
+    assert run.num_thread == 4
+    assert run.concurrency == 1
+    assert run.think is None
+    assert adapter.num_predicts == [32, 32]
+    assert adapter.num_threads == [4, 4]
+    assert adapter.thinks == [None, None]
+
+
+@pytest.mark.asyncio
+async def test_qwen_concurrency_4_sends_think_false_and_omits_num_thread() -> None:
+    profile = next(item for item in PROFILES if item.name == "short_prompt_short_output")
+    adapter = PromptAdapter()
+    run = await _runner(adapter).run(
+        "qwen3.5:2b",
+        profile.prompt,
+        num_predict=profile.num_predict,
+        profile_name=profile.name,
+        concurrency=4,
+        think=False,
+        warmup_count=1,
+        measured_count=1,
+    )
+
+    assert profile.num_predict == 32
+    assert run.concurrency == 4
+    assert run.num_thread is None
+    assert run.think is False
+    assert adapter.num_predicts == [32, 32]
+    assert adapter.num_threads == [None, None]
+    assert adapter.thinks == [False, False]
+
+
+@pytest.mark.asyncio
+async def test_qwen_num_thread_4_sends_think_false_and_keeps_concurrency_1() -> None:
+    profile = next(item for item in PROFILES if item.name == "short_prompt_short_output")
+    adapter = PromptAdapter()
+    run = await _runner(adapter).run(
+        "qwen3.5:2b",
+        profile.prompt,
+        num_predict=profile.num_predict,
+        profile_name=profile.name,
+        num_thread=4,
+        think=False,
+        warmup_count=1,
+        measured_count=1,
+    )
+
+    assert profile.num_predict == 32
+    assert run.num_thread == 4
+    assert run.concurrency == 1
+    assert run.think is False
+    assert adapter.num_predicts == [32, 32]
+    assert adapter.num_threads == [4, 4]
+    assert adapter.thinks == [False, False]
 
 
 def test_metrics_exposes_no_sampler_or_database() -> None:

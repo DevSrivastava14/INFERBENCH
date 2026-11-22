@@ -48,8 +48,10 @@ def save_experiment(
     ``summary`` may be absent. Absent and unset metric fields are stored as
     null. ``profile_name`` is the snapshot's name, and a missing name is
     stored as null. ``think`` false is stored as false. An omitted think flag
-    is stored as null. Quantization, parameter size, model size, and
-    architecture are the snapshot's values. This function does not call
+    is stored as null. ``num_thread`` is the snapshot's value. An omitted
+    thread value is stored as null. A stored 4 is stored as 4. Quantization,
+    parameter size, model size, and architecture are the snapshot's values.
+    This function does not call
     ``summarize``, ``ttft_ms``, or ``tpot_ms``, does not call an adapter, and
     does not sample the machine. The caller commits.
     """
@@ -81,6 +83,7 @@ def save_experiment(
         python_version=snapshot.python_version,
         profile_name=snapshot.profile_name,
         think=snapshot.think,
+        num_thread=snapshot.num_thread,
         quantization=snapshot.quantization,
         parameter_size=snapshot.parameter_size,
         model_size_bytes=snapshot.model_size_bytes,
@@ -196,6 +199,7 @@ def _snapshot(experiment: ExperimentRow) -> ConfigurationSnapshot:
         python_version=experiment.python_version,
         profile_name=experiment.profile_name,
         think=experiment.think,
+        num_thread=experiment.num_thread,
         quantization=experiment.quantization,
         parameter_size=experiment.parameter_size,
         model_size_bytes=experiment.model_size_bytes,

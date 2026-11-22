@@ -136,6 +136,12 @@ TTFT and TPOT stay the per-row functions in `app/metrics/latency.py`. They are n
 
 Size, quantization, parameter size, and architecture are metadata from the live tags and show payload. A missing architecture field stays unset. Qwen versus Gemma is a cross-model comparison. Those metadata fields are not substituted into TTFT, TPOT, throughput, or a percentile.
 
+## Serving comparison
+
+A serving comparison uses the existing formulas. `num_thread` and the concurrency cap are configuration. They are not latency formulas. A CPU sample is not a latency. `think: false` on Qwen is configuration. Gemma omits `think`. Thinking on is not a run in this comparison.
+
+An omitted `num_thread` stays unset. It is not stored as 0. Concurrency 8 and `num_ctx` stay unvaried. The latency, throughput, percentile, and error-rate formulas above stay as Day 6 wrote them.
+
 ## Resource samples
 
 CPU percent, system RAM, and process RAM are samples taken while a run is in flight. They are not a latency formula and they are not a throughput formula. The latency, throughput, percentile, and error-rate formulas above are unchanged.

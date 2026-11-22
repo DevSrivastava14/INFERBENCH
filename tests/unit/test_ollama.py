@@ -269,6 +269,46 @@ async def test_generate_sends_think_false_beside_stream() -> None:
 
 
 @pytest.mark.asyncio
+async def test_generate_sends_num_thread_beside_num_predict() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["model"] == "gemma3:1b"
+        assert body["stream"] is False
+        assert "think" not in body
+        assert body["options"] == {"num_predict": 32, "num_thread": 4}
+        return httpx.Response(200, json=GENERATE_BODY)
+
+    result = await _adapter(handler).generate(
+        "gemma3:1b",
+        "Hi",
+        GenerateOptions(num_predict=32, num_thread=4),
+    )
+
+    assert result.text == "Hello"
+    assert result.metadata["eval_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_generate_sends_think_false_and_num_thread_beside_num_predict() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["model"] == "qwen3.5:2b"
+        assert body["stream"] is False
+        assert body["think"] is False
+        assert body["options"] == {"num_predict": 32, "num_thread": 4}
+        return httpx.Response(200, json=GENERATE_BODY)
+
+    result = await _adapter(handler).generate(
+        "qwen3.5:2b",
+        "Hi",
+        GenerateOptions(num_predict=32, think=False, num_thread=4),
+    )
+
+    assert result.text == "Hello"
+    assert result.metadata["eval_count"] == 2
+
+
+@pytest.mark.asyncio
 async def test_show_uses_details_family_when_it_is_a_string() -> None:
     payload = {
         "name": "qwen3.5:2b",
