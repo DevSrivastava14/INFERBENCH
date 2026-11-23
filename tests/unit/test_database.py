@@ -290,7 +290,18 @@ def test_missing_stored_columns_load_as_null() -> None:
     assert loaded[0].snapshot.parameter_size is None
     assert loaded[0].snapshot.model_size_bytes is None
     assert loaded[0].snapshot.architecture is None
+    assert loaded[0].snapshot.routing_policy is None
+    assert loaded[0].snapshot.preferred_model is None
+    assert loaded[0].snapshot.fallback_count is None
+    assert loaded[0].snapshot.retry_count is None
     assert loaded[0].summary.average_ms == 10.0
+    with engine.connect() as connection:
+        info = connection.exec_driver_sql("PRAGMA table_info(experiments)").all()
+    column_names = {row[1] for row in info}
+    assert "routing_policy" not in column_names
+    assert "preferred_model" not in column_names
+    assert "fallback_count" not in column_names
+    assert "retry_count" not in column_names
     assert loaded[0].measured[0].end_to_end_ms == 1000.0
 
 
@@ -433,3 +444,42 @@ def test_stored_num_thread_4_loads_back_as_4() -> None:
         loaded = load_experiment(session, experiment_id)
 
     assert loaded.snapshot.num_thread == 4
+
+
+def test_omitted_routing_policy_loads_back_as_null() -> None:
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, _run(), _snapshot())
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiments(session)
+
+    assert loaded[0].experiment_id == experiment_id
+    assert loaded[0].snapshot.routing_policy is None
+    assert loaded[0].snapshot.preferred_model is None
+    assert loaded[0].snapshot.fallback_count is None
+    assert loaded[0].snapshot.retry_count is None
+
+
+def test_stored_fallback_count_1_and_retry_count_0_load_back() -> None:
+    snapshot = replace(
+        _snapshot(),
+        routing_policy="availability_aware",
+        preferred_model="qwen3.5:2b",
+        fallback_count=1,
+        retry_count=0,
+    )
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, _run(), snapshot)
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiment(session, experiment_id)
+        listed = load_experiments(session)
+
+    assert loaded.snapshot.routing_policy == "availability_aware"
+    assert loaded.snapshot.preferred_model == "qwen3.5:2b"
+    assert loaded.snapshot.fallback_count == 1
+    assert loaded.snapshot.retry_count == 0
+    assert listed[0].snapshot.fallback_count == 1
+    assert listed[0].snapshot.retry_count == 0

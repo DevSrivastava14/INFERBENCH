@@ -154,7 +154,7 @@ The latency, throughput, percentile, and error-rate formulas above stay as Day 6
 
 ## Routing selection
 
-A latency budget reads a stored aggregate and is not a new latency formula. Selection is not a percentile. The rank reads the stored P95 for the requested profile. The router does not recompute that value.
+A latency budget reads a stored aggregate and is not a new latency formula. Selection is not a percentile. The rank reads the stored P95 for the requested profile. The router does not recompute that value. A fallback count is not a latency. The timeout this day records is the existing adapter error.
 
 The latency, throughput, percentile, and error-rate formulas above stay as Day 6 wrote them.
 

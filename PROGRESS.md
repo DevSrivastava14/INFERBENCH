@@ -525,3 +525,57 @@ Notes that are not open problems: latency-constrained tests cover the budget and
 
 Day 13: routing reliability. Availability checks, timeouts, fallback, failure handling, cancellation, retries, and Experiment E stay on that day. Thinking on versus off, concurrency 8, `num_ctx`, and a same-model quantization run stay later. Do not treat a Day 12 selection as a recommendation. Do not copy a fixture duration into `LEARN.md` or into a pytest assertion.
 
+## 2026-11-23 — Day 13: Routing Reliability
+
+### Five-line summary
+
+Day 13 is routing reliability: an availability-aware policy, the existing timeout, and no retry of the same model. Nothing from earlier days failed, so there is no fix-first work. A preferred model that is unavailable, or whose run fails before a successful measured row, is replaced once, and a cancelled run does not fall back. Experiment E runs `short_prompt_short_output` under the four policies against a `gemma3:1b` static baseline and writes findings from SQLite with no winner. The day is done when mocked pytest passes and the findings file matches the stored rows.
+
+### Completed
+
+- Updated `docs/methodology.md` so Day 13 adds availability-aware fallback beside the Day 12 selection rules. The caller supplies the catalog, the policy, and the unavailable set. Static, workload-aware, and latency-constrained stay as Day 12 wrote them and ignore that set. Availability-aware uses the workload-aware P95 rank as the preferred model, then selects the next eligible model when that preferred model is unavailable. A miss after that skip returns no model. `may_fallback` is true only when the measured rows have no success and no `CancelledError`. A cancelled run does not fall back. The same model is not retried. The retry count for this day is 0. The live script is the caller that may start one replacement run. The text does not name a winner. Step 9 still waits. This day runs Experiment E on `short_prompt_short_output` and still does not repeat an experiment for variance.
+- Pointed `docs/architecture.md` at `app/routing/policies.py` for static, workload-aware, latency-constrained, and availability-aware selection, and at `app/routing/router.py` for `route`. Routing does not call Ollama, does not call `psutil`, does not open SQLite, and does not call `summarize`. The live script is the caller that opens the database and calls `show_model`. FastAPI and the five execution states stay out. The benchmark, metrics, and optimization boundaries stay as Day 12 wrote them. The snapshot also stores `routing_policy`, `preferred_model`, `fallback_count`, and `retry_count`. An omitted value stays unset. A column that is absent from an older stored file loads as null. Load does not alter that file.
+- Recorded in `docs/metrics.md` that a latency budget reads a stored aggregate and is not a new latency formula, that a fallback count is not a latency, and that the timeout this day records is the existing adapter error. Selection is not a percentile. The latency, throughput, percentile, and error-rate formulas stay as Day 6 wrote them. The percentile formula cell still says "P50 is the middle."
+- Added `route(policy, catalog, request, unavailable=())`. It dispatches to the four policies. Only `availability_aware` reads the unavailable set. `Decision` gains `preferred_model`, `fell_back`, and `fallback_count`. The three existing policies keep `fell_back` false and `fallback_count` 0. With fixture P95 values of 200 ms and 500 ms, an empty unavailable set selects 200 ms. With the 200 ms model unavailable, availability-aware selects 500 ms once, `fell_back` is true, and `fallback_count` is 1. Static configured as `gemma` still returns `gemma` when that name is unavailable. An unknown policy name raises `ValueError`. The decision type has no winner field. The package does not import the adapter, the runner, the database, or `app.metrics`.
+- Added `may_fallback`. It returns true only when the measured rows are non-empty, every row failed, and none has `error_type` `CancelledError`. A successful row returns false. A `CancelledError` row returns false. An empty tuple returns false. The helper does not import the runner.
+- `ConfigurationSnapshot`, `build_snapshot`, and `ExperimentRow` gain `routing_policy`, `preferred_model`, `fallback_count`, and `retry_count`, each defaulting to unset. `save_experiment` writes them. `load_experiment` and `load_experiments` return them. A stored fallback count of 1 loads back as 1. A stored retry count of 0 loads back as 0. An omitted policy loads back as null. An older file whose experiments table lacks the new columns loads those fields as null. The load does not alter that file. `_SETTING_FIELDS` gains the four names after `python_version`. Matching values stay off the difference list. Null versus a set policy is a difference. The delta rule is unchanged. The comparison result still has no winner field. `app/benchmark/runner.py` and `app/inference/ollama.py` were not changed. The adapter timeout stays 120 seconds. The runner still does not set `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, or `CANCELLED`.
+- Added `scripts/run_routing_experiment.py`. It inserts the project root on `sys.path` before importing `app`. It refuses to run if the adapter timeout is not 120 seconds. Before deleting any file, it calls `show_model` for `gemma3:1b` and `qwen3.5:2b` and loads `experiments/results/model-comparison.sqlite`. Each model has exactly one `short_prompt_short_output` row, with `average_ms` and `p95_ms` present. The catalog order is `qwen3.5:2b`, then `gemma3:1b`. The five stored latency fields are copied. Warm-up is 2. Measured calls are 3. Concurrency is 1. The static model is `gemma3:1b`. The latency budget is `average_ms` with maximum equal to that model's stored average. Required capabilities are empty. No size cap. The policies run in the order `static`, `workload_aware`, `latency_constrained`, `availability_aware`. Gemma's request omits `think`. A selected `qwen3.5:2b` would send `think` false. The script calls `summarize`, then `save_experiment`. Each saved run stores the policy, the preferred model, the fallback count, and `retry_count` 0. SQLite is `experiments/results/routing-effectiveness.sqlite`. `docs/routing-findings.md` was written from the experiments loaded back out. Static is the baseline for each `compare`. No model was downloaded. No installed model was marked unavailable.
+- The live run stored four experiments. Each selected `gemma3:1b`. The stored fallback count is 0. The stored retry count is 0. Gemma's stored think flag is unset. No stored `error_type` was set. No second model was started. The findings file states that the timeout was the adapter default of 120 seconds, that the measured count is 3, that the retry count is 0, that thinking was not turned on, and that the file does not recommend a policy. A fresh load reproduced that file. No figure from that file was copied into `LEARN.md`, `PROGRESS.md`, or a pytest assertion. The three existing SQLite files were not rewritten.
+
+### Files changed
+
+- `docs/methodology.md` (updated)
+- `docs/architecture.md` (updated)
+- `docs/metrics.md` (updated)
+- `app/routing/__init__.py` (updated)
+- `app/routing/policies.py` (updated)
+- `app/routing/router.py` (updated)
+- `app/monitoring/snapshot.py` (updated)
+- `app/database/models.py` (updated)
+- `app/database/repository.py` (updated)
+- `app/optimization/comparison.py` (updated)
+- `tests/unit/test_routing.py` (updated)
+- `tests/unit/test_database.py` (updated)
+- `tests/unit/test_comparison.py` (updated)
+- `tests/unit/test_routing_experiment.py` (added)
+- `scripts/run_routing_experiment.py` (added)
+- `experiments/results/routing-effectiveness.sqlite` (added)
+- `docs/routing-findings.md` (added)
+
+### Test results
+
+`python -m pytest`: 135 passed in 1.39s. Twenty tests are new, and the existing 115 still pass. The run uses constructed catalogs, the in-memory database, the fake adapter, the fake clock, and the httpx mock transport. It does not contact Ollama. No test asserts a latency number from a live server. Pytest does not collect the live script, and it does not read `docs/routing-findings.md` for an expected timing. The figures 200 and 500 are fixtures. A fresh load of the four stored experiments reproduced the findings file. The three older SQLite hashes were the same before and after the script.
+
+### Problems
+
+None left open.
+
+Nothing failed in the suite, and no product fix was attempted. The first run of `python -m pytest` exited 0. The first launch of `python scripts/run_routing_experiment.py` exited 0.
+
+Notes that are not open problems: both models stayed available and every preferred run had a successful measured row, so the live second-model path did not run. No unit test drives the script loop that stores a failed run and calls `route` once more. An `OllamaError` from `engine_version` is caught by the same handler as a `show_model` failure before any row. `may_fallback` is tested with a lone success and with a cancelled row beside a failure. A success that follows a failed row is not a separate case. `build_snapshot`'s new arguments have no monitoring test. The stored rows show those fields were written. Qwen was not selected, so the live `think` false branch did not run. `LEARN.md` and `docs/day1-check.md` were already modified in the working tree. They were not edited today, and they do not hold a latency figure from the findings file. Day 2 through Day 12 notes were left as notes.
+
+### Next steps
+
+Day 14: the dashboard. Thinking on versus off, concurrency 8, `num_ctx`, and a same-model quantization run stay later. Do not treat a Day 13 selection, or a stored fallback count of 0, as a recommendation. Do not copy a figure from `docs/routing-findings.md` into `LEARN.md` or into a pytest assertion.
+
+

@@ -26,10 +26,13 @@ class ConfigurationSnapshot:
 
     ``engine_version`` is the string the caller passed. This object does not
     fetch it. ``profile_name`` is the name the caller passed. It is unset
-    when the caller omits it. ``think``, ``num_thread``, ``quantization``,
+    when the caller omits it.     ``think``, ``num_thread``, ``quantization``,
     ``parameter_size``, ``model_size_bytes``, and ``architecture`` are the
-    values the caller passed. Each is unset when the caller omits it. This
-    object does not look up a profile catalog and does not call Ollama.
+    values the caller passed. ``routing_policy``, ``preferred_model``,
+    ``fallback_count``, and ``retry_count`` are the values the caller passed.
+    Each is unset when the caller omits it. An omitted count is not the
+    integer 0. This object does not look up a profile catalog and does not
+    call Ollama.
     """
 
     model: str
@@ -52,6 +55,10 @@ class ConfigurationSnapshot:
     parameter_size: str | None = None
     model_size_bytes: int | None = None
     architecture: str | None = None
+    routing_policy: str | None = None
+    preferred_model: str | None = None
+    fallback_count: int | None = None
+    retry_count: int | None = None
 
 
 def capture_hardware(probe: Callable[[], HardwareIdentity]) -> HardwareIdentity:
@@ -85,13 +92,18 @@ def build_snapshot(
     parameter_size: str | None = None,
     model_size_bytes: int | None = None,
     architecture: str | None = None,
+    routing_policy: str | None = None,
+    preferred_model: str | None = None,
+    fallback_count: int | None = None,
+    retry_count: int | None = None,
 ) -> ConfigurationSnapshot:
     """Combine caller fields with hardware from ``probe``.
 
     Capture time is one reading of ``clock``. Engine name and engine version
-    are the strings the caller passed. ``profile_name``, ``num_thread``, and
-    the model metadata fields are stored as given. This function does not
-    fill them from a model name or from the logical CPU count.
+    are the strings the caller passed. ``profile_name``, ``num_thread``, the
+    model metadata fields, and the routing fields are stored as given. An
+    omitted routing field stays unset. This function does not fill them from
+    a model name or from the logical CPU count.
     """
 
     hardware = capture_hardware(probe)
@@ -116,6 +128,10 @@ def build_snapshot(
         parameter_size=parameter_size,
         model_size_bytes=model_size_bytes,
         architecture=architecture,
+        routing_policy=routing_policy,
+        preferred_model=preferred_model,
+        fallback_count=fallback_count,
+        retry_count=retry_count,
     )
 
 

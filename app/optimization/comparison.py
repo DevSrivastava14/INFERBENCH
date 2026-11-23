@@ -45,6 +45,10 @@ _SETTING_FIELDS = (
     "logical_cpu_count",
     "total_ram_bytes",
     "python_version",
+    "routing_policy",
+    "preferred_model",
+    "fallback_count",
+    "retry_count",
 )
 
 

@@ -4,6 +4,9 @@
 lowest stored P95 for the requested profile among candidates that pass the
 capability and size filters. ``latency_constrained`` adds the caller's
 budget as a further filter, then uses that same P95 rank.
+``availability_aware`` uses that same rank as the preferred model, then
+selects the next eligible model when the preferred model is unavailable.
+``may_fallback`` reads measured rows the caller passes.
 
 This module does not call Ollama, does not call ``psutil``, does not open
 SQLite, and does not call ``summarize``. It does not name a winner.
@@ -11,7 +14,7 @@ SQLite, and does not call ``summarize``. It does not name a winner.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 
 LATENCY_FIELDS = (
@@ -99,8 +102,10 @@ class Decision:
     """The policy's selection.
 
     ``stored_p95_ms`` is the P95 the rank used, or the static model's stored
-    P95 when that value is present. This type has no winner, improved,
-    recommendation, or best field.
+    P95 when that value is present. ``preferred_model`` is the first choice
+    when one exists. ``fell_back`` and ``fallback_count`` record one
+    replacement. This type has no winner, improved, recommendation, or best
+    field.
     """
 
     policy: str
@@ -109,6 +114,9 @@ class Decision:
     stored_p95_ms: float | None
     failed_constraints: tuple[str, ...]
     reason: str
+    preferred_model: str | None = None
+    fell_back: bool = False
+    fallback_count: int = 0
 
 
 def static(catalog: Sequence[CatalogEntry], request: RouteRequest) -> Decision:
@@ -133,6 +141,9 @@ def static(catalog: Sequence[CatalogEntry], request: RouteRequest) -> Decision:
             stored_p95_ms=None,
             failed_constraints=(),
             reason="static policy returns the configured model absent from the catalog",
+            preferred_model=selected,
+            fell_back=False,
+            fallback_count=0,
         )
     return Decision(
         policy="static",
@@ -141,6 +152,9 @@ def static(catalog: Sequence[CatalogEntry], request: RouteRequest) -> Decision:
         stored_p95_ms=_stored_p95(entry, request.profile_name),
         failed_constraints=_static_failures(entry, request),
         reason="static policy returns the configured model",
+        preferred_model=selected,
+        fell_back=False,
+        fallback_count=0,
     )
 
 
@@ -177,6 +191,69 @@ def latency_constrained(
         return _no_selection("latency_constrained")
     entry, p95 = chosen
     return _selection("latency_constrained", entry, p95)
+
+
+def availability_aware(
+    catalog: Sequence[CatalogEntry],
+    request: RouteRequest,
+    unavailable: Collection[str] = (),
+) -> Decision:
+    """Select the workload-aware model, or the next eligible name.
+
+    The preferred model is the lowest stored P95 among candidates that pass
+    the capability and size filters. A latency budget on the request is
+    ignored. A name in ``unavailable`` is skipped after that rank. One skip
+    sets ``fell_back`` and ``fallback_count`` 1. A miss with no preferred
+    model is not a fallback. This policy does not retry the same model.
+    """
+
+    blocked = set(unavailable)
+    preferred = _lowest_p95(catalog, request, budget=None)
+    if preferred is None:
+        return _no_selection("availability_aware")
+    entry, p95 = preferred
+    if entry.model not in blocked:
+        return _selection("availability_aware", entry, p95)
+    remaining = [item for item in catalog if item.model not in blocked]
+    chosen = _lowest_p95(remaining, request, budget=None)
+    if chosen is None:
+        return _no_selection(
+            "availability_aware",
+            preferred_model=entry.model,
+            fell_back=True,
+            fallback_count=1,
+        )
+    next_entry, next_p95 = chosen
+    return Decision(
+        policy="availability_aware",
+        selected_model=next_entry.model,
+        in_catalog=True,
+        stored_p95_ms=next_p95,
+        failed_constraints=(),
+        reason="availability_aware selected the next eligible model",
+        preferred_model=entry.model,
+        fell_back=True,
+        fallback_count=1,
+    )
+
+
+def may_fallback(measured: Sequence[object]) -> bool:
+    """Return whether those measured rows may be replaced by another model.
+
+    True only when ``measured`` is non-empty, every row failed, and no row
+    has ``error_type`` ``CancelledError``. One successful row returns false.
+    One cancelled row returns false. An empty sequence returns false. This
+    helper does not call Ollama and does not import the runner.
+    """
+
+    if len(measured) == 0:
+        return False
+    for row in measured:
+        if getattr(row, "success"):
+            return False
+        if getattr(row, "error_type") == "CancelledError":
+            return False
+    return True
 
 
 def _require_budget(request: RouteRequest) -> LatencyBudget:
@@ -272,10 +349,19 @@ def _selection(policy: str, entry: CatalogEntry, p95: float) -> Decision:
         stored_p95_ms=p95,
         failed_constraints=(),
         reason=f"{policy} selected the lowest stored p95 for the requested profile",
+        preferred_model=entry.model,
+        fell_back=False,
+        fallback_count=0,
     )
 
 
-def _no_selection(policy: str) -> Decision:
+def _no_selection(
+    policy: str,
+    *,
+    preferred_model: str | None = None,
+    fell_back: bool = False,
+    fallback_count: int = 0,
+) -> Decision:
     return Decision(
         policy=policy,
         selected_model=None,
@@ -283,4 +369,7 @@ def _no_selection(policy: str) -> Decision:
         stored_p95_ms=None,
         failed_constraints=(),
         reason=f"{policy} selected no model",
+        preferred_model=preferred_model,
+        fell_back=fell_back,
+        fallback_count=fallback_count,
     )

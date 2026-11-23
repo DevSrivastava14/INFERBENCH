@@ -360,3 +360,48 @@ def test_omitted_num_thread_loads_in_the_difference_list_as_null() -> None:
         SettingDifference(field="num_thread", baseline=None, candidate=4),
     )
     assert result.setting_differences[0].baseline is None
+
+
+def test_null_routing_policy_is_a_difference_and_a_match_stays_off() -> None:
+    baseline = _stored(1, snapshot=_snapshot())
+    candidate = _stored(
+        2,
+        snapshot=_snapshot(
+            routing_policy="availability_aware",
+            preferred_model="gemma",
+            fallback_count=1,
+            retry_count=0,
+        ),
+    )
+    matched = _snapshot(
+        routing_policy="static",
+        preferred_model="gemma",
+        fallback_count=0,
+        retry_count=0,
+    )
+
+    result = compare(baseline, candidate)
+    same = compare(_stored(3, snapshot=matched), _stored(4, snapshot=matched))
+
+    assert result.setting_differences == (
+        SettingDifference(field="routing_policy", baseline=None, candidate="availability_aware"),
+        SettingDifference(field="preferred_model", baseline=None, candidate="gemma"),
+        SettingDifference(field="fallback_count", baseline=None, candidate=1),
+        SettingDifference(field="retry_count", baseline=None, candidate=0),
+    )
+    assert same.setting_differences == ()
+
+
+def test_routing_fields_follow_python_version() -> None:
+    baseline = _stored(1, snapshot=_snapshot(python_version="3.13.5"))
+    candidate = _stored(
+        2,
+        snapshot=_snapshot(python_version="3.13.6", routing_policy="static"),
+    )
+
+    result = compare(baseline, candidate)
+
+    assert [item.field for item in result.setting_differences] == [
+        "python_version",
+        "routing_policy",
+    ]

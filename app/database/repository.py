@@ -54,7 +54,10 @@ def save_experiment(
     is stored as null. ``num_thread`` is the snapshot's value. An omitted
     thread value is stored as null. A stored 4 is stored as 4. Quantization,
     parameter size, model size, and architecture are the snapshot's values.
-    This function does not call
+    ``routing_policy``, ``preferred_model``, ``fallback_count``, and
+    ``retry_count`` are the snapshot's values. An omitted value is stored as
+    null. A stored fallback count of 1 is stored as 1. A stored retry count
+    of 0 is stored as 0. This function does not call
     ``summarize``, ``ttft_ms``, or ``tpot_ms``, does not call an adapter, and
     does not sample the machine. The caller commits.
     """
@@ -91,6 +94,10 @@ def save_experiment(
         parameter_size=snapshot.parameter_size,
         model_size_bytes=snapshot.model_size_bytes,
         architecture=snapshot.architecture,
+        routing_policy=snapshot.routing_policy,
+        preferred_model=snapshot.preferred_model,
+        fallback_count=snapshot.fallback_count,
+        retry_count=snapshot.retry_count,
         average_ms=stored.average_ms,
         median_ms=stored.median_ms,
         p50_ms=stored.p50_ms,
@@ -248,6 +255,10 @@ def _snapshot(experiment: ExperimentRow) -> ConfigurationSnapshot:
         parameter_size=experiment.parameter_size,
         model_size_bytes=experiment.model_size_bytes,
         architecture=experiment.architecture,
+        routing_policy=experiment.routing_policy,
+        preferred_model=experiment.preferred_model,
+        fallback_count=experiment.fallback_count,
+        retry_count=experiment.retry_count,
     )
 
 

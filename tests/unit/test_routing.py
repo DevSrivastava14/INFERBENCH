@@ -9,10 +9,11 @@ from __future__ import annotations
 import ast
 from dataclasses import fields
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from app.routing import route
+from app.routing import may_fallback, route
 from app.routing.policies import (
     CatalogEntry,
     Decision,
@@ -74,8 +75,13 @@ def _request(
     )
 
 
-def _route(policy: str, catalog: list[CatalogEntry], request: RouteRequest) -> Decision:
-    decision = route(policy, catalog, request)
+def _route(
+    policy: str,
+    catalog: list[CatalogEntry],
+    request: RouteRequest,
+    unavailable=(),
+) -> Decision:
+    decision = route(policy, catalog, request, unavailable)
     lowered = decision.reason.lower()
     for word in _FORBIDDEN:
         assert word not in lowered
@@ -102,6 +108,9 @@ def test_lowest_stored_p95_for_the_requested_profile_is_selected() -> None:
     assert decision.stored_p95_ms == 200
     assert decision.in_catalog is True
     assert decision.failed_constraints == ()
+    assert decision.preferred_model == "profile-200"
+    assert decision.fell_back is False
+    assert decision.fallback_count == 0
 
 
 def test_equal_p95_keeps_the_earlier_catalog_entry() -> None:
@@ -271,6 +280,9 @@ def test_static_returns_a_name_absent_from_the_catalog() -> None:
     assert decision.in_catalog is False
     assert decision.stored_p95_ms is None
     assert decision.failed_constraints == ()
+    assert decision.preferred_model == "absent"
+    assert decision.fell_back is False
+    assert decision.fallback_count == 0
 
 
 def test_static_requires_a_configured_name() -> None:
@@ -307,11 +319,128 @@ def test_unknown_profile_matches_no_measurement() -> None:
     assert decision.in_catalog is False
     assert decision.stored_p95_ms is None
     assert decision.failed_constraints == ()
+    assert decision.preferred_model is None
+    assert decision.fell_back is False
+    assert decision.fallback_count == 0
 
 
 def test_unknown_policy_name_raises() -> None:
     with pytest.raises(ValueError):
-        route("availability_aware", [_entry("only", 200)], _request())
+        route("not_a_policy", [_entry("only", 200)], _request())
+
+
+def test_both_available_selects_the_200_ms_model() -> None:
+    catalog = [_entry("p95-500", 500), _entry("p95-200", 200)]
+
+    decision = _route("availability_aware", catalog, _request())
+
+    assert decision.selected_model == "p95-200"
+    assert decision.stored_p95_ms == 200
+    assert decision.preferred_model == "p95-200"
+    assert decision.fell_back is False
+    assert decision.fallback_count == 0
+
+
+def test_unavailable_200_ms_model_selects_500_ms_once() -> None:
+    catalog = [_entry("p95-500", 500), _entry("p95-200", 200)]
+
+    decision = _route(
+        "availability_aware",
+        catalog,
+        _request(),
+        {"p95-200"},
+    )
+
+    assert decision.selected_model == "p95-500"
+    assert decision.stored_p95_ms == 500
+    assert decision.preferred_model == "p95-200"
+    assert decision.fell_back is True
+    assert decision.fallback_count == 1
+    assert decision.in_catalog is True
+
+
+def test_static_returns_gemma_when_gemma_is_unavailable() -> None:
+    catalog = [_entry("gemma", 500), _entry("other", 200)]
+
+    decision = _route(
+        "static",
+        catalog,
+        _request(static_model="gemma"),
+        {"gemma"},
+    )
+
+    assert decision.selected_model == "gemma"
+    assert decision.preferred_model == "gemma"
+    assert decision.fell_back is False
+    assert decision.fallback_count == 0
+
+
+def test_other_policies_ignore_the_unavailable_set() -> None:
+    catalog = [
+        _entry("p95-200", 200, average=100),
+        _entry("p95-500", 500, average=100),
+    ]
+    blocked = {"p95-200"}
+
+    workload = _route("workload_aware", catalog, _request(), blocked)
+    limited = _route(
+        "latency_constrained",
+        catalog,
+        _request(latency_budget=LatencyBudget("average_ms", 150)),
+        blocked,
+    )
+
+    assert workload.selected_model == "p95-200"
+    assert workload.fell_back is False
+    assert workload.fallback_count == 0
+    assert limited.selected_model == "p95-200"
+    assert limited.fell_back is False
+    assert limited.fallback_count == 0
+
+
+def test_availability_aware_ignores_a_latency_budget() -> None:
+    catalog = [
+        _entry("p95-200", 200, average=400),
+        _entry("p95-500", 500, average=100),
+    ]
+
+    decision = _route(
+        "availability_aware",
+        catalog,
+        _request(latency_budget=LatencyBudget("average_ms", 150)),
+    )
+
+    assert decision.selected_model == "p95-200"
+    assert decision.stored_p95_ms == 200
+    assert decision.fell_back is False
+    assert decision.fallback_count == 0
+
+
+def test_availability_aware_miss_is_not_a_fallback() -> None:
+    decision = _route("availability_aware", [_entry("unset-p95", None)], _request())
+
+    assert decision.selected_model is None
+    assert decision.preferred_model is None
+    assert decision.fell_back is False
+    assert decision.fallback_count == 0
+    assert decision.failed_constraints == ()
+
+
+def test_skipped_preferred_with_no_remaining_model() -> None:
+    catalog = [_entry("p95-500", 500), _entry("p95-200", 200)]
+
+    decision = _route(
+        "availability_aware",
+        catalog,
+        _request(),
+        {"p95-200", "p95-500"},
+    )
+
+    assert decision.selected_model is None
+    assert decision.preferred_model == "p95-200"
+    assert decision.fell_back is True
+    assert decision.fallback_count == 1
+    assert decision.in_catalog is False
 
 
 def test_latency_constrained_without_a_budget_raises() -> None:
@@ -324,6 +453,35 @@ def test_budget_metric_outside_the_five_fields_raises() -> None:
 
     with pytest.raises(ValueError):
         route("latency_constrained", [_entry("only", 200, average=100)], request)
+
+
+def _measured_row(*, success: bool, error_type: str | None) -> SimpleNamespace:
+    return SimpleNamespace(success=success, error_type=error_type)
+
+
+def test_may_fallback_is_false_for_an_empty_tuple() -> None:
+    assert may_fallback(()) is False
+
+
+def test_may_fallback_is_false_for_a_successful_row() -> None:
+    assert may_fallback((_measured_row(success=True, error_type=None),)) is False
+
+
+def test_may_fallback_is_false_for_a_cancelled_row() -> None:
+    cancelled = _measured_row(success=False, error_type="CancelledError")
+    failed = _measured_row(success=False, error_type="OllamaTimeoutError")
+
+    assert may_fallback((cancelled,)) is False
+    assert may_fallback((failed, cancelled)) is False
+
+
+def test_may_fallback_is_true_when_every_measured_row_failed() -> None:
+    rows = (
+        _measured_row(success=False, error_type="OllamaTimeoutError"),
+        _measured_row(success=False, error_type="OllamaConnectionError"),
+    )
+
+    assert may_fallback(rows) is True
 
 
 def test_decision_type_has_no_winner_field() -> None:
