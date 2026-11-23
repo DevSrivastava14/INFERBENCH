@@ -152,6 +152,12 @@ A CPU sample is not a latency. The stored sample range is not a latency delta.
 
 The latency, throughput, percentile, and error-rate formulas above stay as Day 6 wrote them.
 
+## Routing selection
+
+A latency budget reads a stored aggregate and is not a new latency formula. Selection is not a percentile. The rank reads the stored P95 for the requested profile. The router does not recompute that value.
+
+The latency, throughput, percentile, and error-rate formulas above stay as Day 6 wrote them.
+
 ## Resource samples
 
 CPU percent, system RAM, and process RAM are samples taken while a run is in flight. They are not a latency formula and they are not a throughput formula. The latency, throughput, percentile, and error-rate formulas above are unchanged.

@@ -482,3 +482,46 @@ Notes that are not open problems: a request-throughput delta of exactly zero, or
 
 Day 12: routing fundamentals. Policy-based routing, workload-aware selection, constraints, latency budgets, and model capabilities stay on that day. Do not treat a Day 11 delta, phase label, or CPU sample as a recommendation. Do not copy a figure from `docs/analysis-findings.md` into `LEARN.md` or into a pytest assertion.
 
+## 2026-11-23 — Day 12: Routing Fundamentals
+
+### Five-line summary
+
+Day 12 is routing fundamentals: three policies choose a model from a catalog the caller already filled. Nothing from earlier days failed, so there is no fix-first work. Static returns the configured model, workload-aware picks the lowest stored P95 for the requested profile, and latency-constrained adds the caller's budget as a filter. Fallback, live availability checks, and a routing experiment stay on Day 13. The day is done when mocked pytest passes and a decision names no winner.
+
+### Completed
+
+- Updated `docs/methodology.md` with a routing-selection section. It does not add a procedure step, and it does not rerun step 12. The caller supplies the catalog and the policy. Static returns the configured model and keeps that name when a constraint fails. Workload-aware selection is the lowest stored P95 for the requested profile among candidates that pass the capability and size filters. A miss returns no model. Latency-constrained adds the caller's budget as a further filter, then uses that same P95 rank. The text does not name a winner. Step 9 still waits. This day does not call Ollama. Availability-aware fallback, timeouts, and retries stay on Day 13.
+- Pointed `docs/architecture.md` at `app/routing/policies.py` for static, workload-aware, and latency-constrained selection, and at `app/routing/router.py` for `route`. Removed the sentence that listed those three policies, plus availability-aware fallback, as later work. Availability-aware fallback stays later. Removed the claim that this day does not add routing. Routing does not call Ollama, does not call `psutil`, does not open SQLite, and does not call `summarize`. FastAPI and the five execution states stay out. The benchmark, metrics, optimization, and database boundaries stay as Day 11 wrote them.
+- Recorded in `docs/metrics.md` that a latency budget reads a stored aggregate and is not a new latency formula, and that selection is not a percentile. The latency, throughput, percentile, and error-rate formulas stay as Day 6 wrote them. The percentile formula cell still says "P50 is the middle."
+- Added `route(policy, catalog, request)` in `app/routing/router.py`. It dispatches to the three policies in `app/routing/policies.py`. An unknown policy name raises `ValueError`. Catalog entries are a sequence. A measurement holds `average_ms`, `median_ms`, `p50_ms`, `p95_ms`, and `p99_ms`, each present or unset. The router does not recompute them. The package does not import the adapter, the runner, the database, or `app.metrics`. It does not open a connection.
+- Static returns the configured model name. A missing configured name raises `ValueError`. The decision keeps that name when a capability check, a size check, or a P95 check fails, and lists `capability`, `model_size`, and `p95_missing` in that order. A latency budget is ignored. A name absent from the catalog is still returned, with `in_catalog` false, `stored_p95_ms` unset, and an empty failure list. Static does not switch to another model.
+- Workload-aware keeps candidates that have every required capability and that pass the size cap. Among those with a stored `p95_ms` for the requested profile, it selects the lowest P95. Equal P95 keeps the earlier catalog entry. A missing P95 is not selected. No eligible model returns no selected model and an empty failure list. A latency budget on the request is ignored.
+- Latency-constrained uses those same filters, plus the caller's budget. The stored value must be present and less than or equal to the maximum. Among models that pass, the lowest stored P95 for that profile is selected. A missing budget, or a metric name outside the five latency fields, raises `ValueError`. No eligible model returns no selection.
+- The decision is frozen. It holds `policy`, `selected_model` or unset, `in_catalog`, `stored_p95_ms` or unset, `failed_constraints`, and `reason`. The type has no field named winner, improved, recommendation, or best. The reason does not contain better, worse, improved, winner, recommend, or best. `app/routing/__init__.py` names `route` and the three policies.
+
+### Files changed
+
+- `docs/methodology.md` (updated)
+- `docs/architecture.md` (updated)
+- `docs/metrics.md` (updated)
+- `app/routing/__init__.py` (added)
+- `app/routing/policies.py` (added)
+- `app/routing/router.py` (added)
+- `tests/unit/test_routing.py` (added)
+
+### Test results
+
+`python -m pytest`: 115 passed in 1.29s. Nineteen tests are new, and the existing 96 still pass. The run uses constructed catalogs, the existing mocks, and the httpx mock transport. It does not contact Ollama. No test asserts a latency number from a live server. Pytest does not read a findings file for an expected timing. The figures 200, 500, 100, 900, 400, and 150 are fixtures.
+
+### Problems
+
+None left open.
+
+Nothing failed in the suite, and no product fix was attempted. The first run of `python -m pytest` exited 0.
+
+Notes that are not open problems: latency-constrained tests cover the budget and the P95 rank, and the capability and size filters are asserted on workload-aware. No test shows an unset budget field failing the budget, a latency-constrained miss, a missing P95 beside a present one, or an average equal to the maximum of 150. The static `vision` test checks that `capability` is in `failed_constraints`, and a separate test checks the full order when all three labels apply. The test name `test_required_vision_drops_the_faster_candidate_that_lacks_it` uses the word faster. The assertion checks the selected name and the stored P95. A string passed as capabilities raises `TypeError`. `TODAY.md` did not require that guard. `qwen3.5:2b` and `gemma3:1b` are not used as catalog names. `LEARN.md` and `docs/day1-check.md` were already modified in the working tree. They were not edited today, and they do not hold a figure from a findings file. Day 2 through Day 11 notes were left as notes.
+
+### Next steps
+
+Day 13: routing reliability. Availability checks, timeouts, fallback, failure handling, cancellation, retries, and Experiment E stay on that day. Thinking on versus off, concurrency 8, `num_ctx`, and a same-model quantization run stay later. Do not treat a Day 12 selection as a recommendation. Do not copy a fixture duration into `LEARN.md` or into a pytest assertion.
+
