@@ -1,0 +1,30 @@
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { Shell } from "./layout/Shell.jsx";
+import { Benchmark } from "./pages/Benchmark.jsx";
+import { History } from "./pages/History.jsx";
+import { Overview } from "./pages/Overview.jsx";
+import { Results } from "./pages/Results.jsx";
+
+const router = createBrowserRouter([
+  {
+    element: <Shell />,
+    children: [
+      { index: true, handle: { title: "Overview" }, element: <Overview /> },
+      {
+        path: "benchmark",
+        handle: { title: "Benchmark configuration" },
+        element: <Benchmark />,
+      },
+      { path: "results", handle: { title: "Results" }, element: <Results /> },
+      {
+        path: "history",
+        handle: { title: "Experiment history" },
+        element: <History />,
+      },
+    ],
+  },
+]);
+
+export function App() {
+  return <RouterProvider router={router} />;
+}

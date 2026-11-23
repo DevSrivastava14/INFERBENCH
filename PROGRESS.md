@@ -578,4 +578,68 @@ Notes that are not open problems: both models stayed available and every preferr
 
 Day 14: the dashboard. Thinking on versus off, concurrency 8, `num_ctx`, and a same-model quantization run stay later. Do not treat a Day 13 selection, or a stored fallback count of 0, as a recommendation. Do not copy a figure from `docs/routing-findings.md` into `LEARN.md` or into a pytest assertion.
 
+## 2026-11-23 — Day 14: Frontend Development
+
+### Five-line summary
+
+Day 14 is the dashboard shell: a React and JavaScript workbench with overview, configuration, results, and history. Nothing from earlier days failed, so there is no fix-first work. The screens show empty states in one layout, and fixture numbers stay inside frontend tests. The type, color, and spacing are specified so the tool does not look like a generic AI template, and FastAPI stays on Day 15. The day is done when pytest stays green and the frontend tests and production build pass with no measurement on the open pages.
+
+### Completed
+
+- Updated `docs/architecture.md` so `frontend/` reads measurements it is given. The dashboard does not calculate TTFT, TPOT, percentiles, throughput, or error rate. It does not call Ollama, does not call `psutil`, does not open SQLite, and does not call `summarize`. The four pages are Overview, Benchmark configuration, Results, and Experiment history. FastAPI and the five execution states stay out. The benchmark, metrics, optimization, routing, monitoring, and database boundaries stay as Day 13 wrote them. A chart draws a series it is given. A chart is not a new latency formula. Selection is not a percentile.
+- Updated `docs/methodology.md` so Day 14 adds no procedure step, does not rerun step 12, and does not repeat an experiment for variance. The text does not name a winner. Step 9 still waits. Thinking on versus off, concurrency 8, `num_ctx`, and a same-model quantization run stay later. `docs/metrics.md` was not edited. The percentile formula cell still says "P50 is the middle."
+- Added a Vite, React, and JavaScript app. One shell wraps the four routes. The rail carries the product name, InferBench. UI text uses IBM Plex Sans. Metric names and field names use IBM Plex Mono. The tokens are one ink, one paper, and one muted accent. Hand-written CSS in `frontend/src/styles/` is the look. Below 720px the rail collapses, the history table scrolls, and the form stays one column.
+- Overview has five regions: inference engines, models, hardware, recent experiments, and current CPU and RAM. Each says nothing is loaded. The page does not name Ollama as up, does not list `gemma3:1b` or `qwen3.5:2b`, and does not show a CPU percent. `loadExperiments()` returns `[]` and does not call `fetch`.
+- The configuration form keeps local state for model, prompt, profile name, `num_predict`, warm-up count, measured count, concurrency, `think`, and `num_thread`. The profile control offers the four Day 8 names, or blank. `think` defaults to omitted. A blank `num_thread` stays blank and is not stored as 0, because this form does not store anything. Streaming is a label for the benchmark path the runner already uses. There is no Run control and no `num_ctx`.
+- History renders configuration column headers and an empty body. Results lists TTFT, TPOT, end-to-end latency, generation throughput, request throughput, P50, P95, P99, and error rate, and says no experiment is selected. `SeriesChart` draws the `series` prop it receives and does not compute a percentile. The Results page passes no series. A frontend test supplies 100, 110, and 120 ms. Those numbers are a fixture. The runner still does not set `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, or `CANCELLED`.
+
+### Files changed
+
+- `docs/architecture.md` (updated)
+- `docs/methodology.md` (updated)
+- `frontend/package.json` (added)
+- `frontend/package-lock.json` (added)
+- `frontend/vite.config.js` (added)
+- `frontend/index.html` (added)
+- `frontend/.gitignore` (added)
+- `frontend/src/main.jsx` (added)
+- `frontend/src/App.jsx` (added)
+- `frontend/src/layout/Shell.jsx` (added)
+- `frontend/src/styles/tokens.css` (added)
+- `frontend/src/styles/layout.css` (added)
+- `frontend/src/pages/Overview.jsx` (added)
+- `frontend/src/pages/Benchmark.jsx` (added)
+- `frontend/src/pages/History.jsx` (added)
+- `frontend/src/pages/Results.jsx` (added)
+- `frontend/src/services/experiments.js` (added)
+- `frontend/src/components/SeriesChart.jsx` (added)
+- `frontend/src/components/SeriesChart.test.jsx` (added)
+- `frontend/src/pages/Overview.test.jsx` (added)
+- `frontend/src/pages/Benchmark.test.jsx` (added)
+- `frontend/src/pages/History.test.jsx` (added)
+- `frontend/src/pages/Results.test.jsx` (added)
+- `frontend/src/test-setup.js` (added)
+
+### Test results
+
+`python -m pytest`: 135 passed in 1.58s. The count is the Day 13 count. Pytest collected only `tests/unit/` and did not collect `frontend/`. The run does not contact Ollama. No test asserts a latency number from a live server. Pytest does not read a findings file for an expected timing.
+
+`npm test`: 6 passed. The chart test sees 100, 110, and 120. The Results page render does not include that series. Overview, history, and the configuration form render no latency, no CPU sample, and no discovered model list. The form does not call `fetch`. Frontend tests do not read a findings file.
+
+`npm run build` succeeded. Vite reports the script chunk is 680 kB because Recharts is included. The build exits 0.
+
+### Problems
+
+None left open.
+
+The first frontend run failed one chart test. `draws nothing when no series is passed` found the text 100. That text was left in the document by the previous test. The chart container for the empty call had no SVG. `frontend/src/test-setup.js` now cleans up after each test. The second run passed.
+
+The first view of the dev server was a blank page. `useMatches` in the shell requires a data router in React Router 7, and `BrowserRouter` is not one. The shell threw, and React left the root empty. The app now uses `createBrowserRouter` and `RouterProvider`. The extra `BrowserRouter` in `main.jsx` was removed. After that change, Overview rendered its five empty regions. The frontend suite was run again and passed.
+
+Notes that are not open problems: the narrow layout is in the CSS and was not opened in a narrow window, and no test checks that width. The open screens are plainer than the professional-UI section. That density stays for later, after the dashboard is connected and during the engineering polish. The `think` control can hold `true` in local state. The default is omitted, and the form does not send it. History's column names are the runner's configuration fields. `LEARN.md` and `docs/day1-check.md` were already modified in the working tree. They were not edited today, and they do not hold a figure from a findings file. Day 2 through Day 13 notes were left as notes.
+
+### Next steps
+
+Day 15: connect the dashboard to FastAPI. Benchmark execution, live progress, results retrieval, experiment comparisons, and routing visualization stay on that day. Do not treat an empty screen, or the fixture series 100, 110, and 120, as a benchmark result. Thinking on versus off, concurrency 8, `num_ctx`, and a same-model quantization run stay later.
+
 

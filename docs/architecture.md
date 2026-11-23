@@ -4,6 +4,8 @@ This note names who owns each job. It comes from the planned architecture. Day 1
 
 The dashboard reads stored measurements. It does not calculate them.
 
+Day 14 adds `frontend/` as the reader of measurements it is given. The dashboard does not calculate TTFT, TPOT, percentiles, throughput, or error rate. It does not call Ollama, does not call `psutil`, does not open SQLite, and does not call `summarize`. The four pages are Overview, Benchmark configuration, Results, and Experiment history. FastAPI and the five execution states stay out. A chart draws a series it is given. A chart is not a new latency formula. Selection is not a percentile.
+
 ```text
 React dashboard
       |
@@ -32,6 +34,8 @@ Local models, CPU and RAM monitoring, SQLite
 
 **Monitoring.** Owns CPU and RAM samples and hardware identity. CPU percent is system-wide. System RAM is the whole machine. Process RAM is the resident set of the benchmark process. It does not time tokens and it does not compute a latency.
 
+**Dashboard.** `frontend/` reads measurements it is given. It does not calculate TTFT, TPOT, percentiles, throughput, or error rate. It does not call Ollama, does not call `psutil`, does not open SQLite, and does not call `summarize`. The four pages are Overview, Benchmark configuration, Results, and Experiment history. FastAPI and the five execution states stay out. A chart draws a series it is given. A chart is not a new latency formula. Selection is not a percentile.
+
 ## Boundaries
 
 These rules keep later days from mixing clocks and owners.
@@ -40,6 +44,7 @@ These rules keep later days from mixing clocks and owners.
 - Adapters do not compute percentiles.
 - The optimization module reads stored experiments. It does not invent numbers. It does not call Ollama, it does not call `psutil`, it does not open SQLite, and it does not call `summarize`. It does not name a winner.
 - The routing module selects from a catalog the caller supplies. It does not call Ollama, it does not call `psutil`, it does not open SQLite, and it does not call `summarize`. It does not name a winner. The live script is the caller that opens the database and calls `show_model`.
+- `frontend/` reads measurements it is given. It does not calculate TTFT, TPOT, percentiles, throughput, or error rate. It does not call Ollama, does not call `psutil`, does not open SQLite, and does not call `summarize`. FastAPI and the five execution states stay later. A chart is not a new latency formula. Selection is not a percentile.
 - The benchmark runner must not block the FastAPI event loop. That is a later requirement. Day 1 does not build the runner.
 
 A streaming response shows the split. The inference adapter reads the HTTP stream. The stream result carries `first_content_at`, the stamp of the first non-empty `response`. The adapter does not name that stamp TTFT, and it does not compute TPOT, throughput, or a percentile. The adapter sends `think` as a top-level generate field when the caller sets it. When the caller omits it, the key is absent. The adapter does not choose the flag from the model name. The adapter sends `num_thread` in `options` beside `num_predict` when the caller sets it. When the caller omits `num_thread`, that key is absent. An omitted value is not the integer 0.
@@ -59,6 +64,8 @@ A streaming response shows the split. The inference adapter reads the HTTP strea
 `app/monitoring/` owns CPU and RAM samples and hardware identity. It does not time tokens.
 
 `app/database/` stores the snapshot, including `profile_name`, the think flag, the `num_thread` value the caller passed, `routing_policy`, `preferred_model`, `fallback_count`, `retry_count`, and the model metadata the caller copied, the rows, the samples, and the summary. It stores that name, that flag, that thread value or leaves it unset, those routing fields or leaves an omitted value unset, and those metadata fields, and it does not recompute the summary. It does not call `summarize` and it does not call Ollama. Load returns the stored aggregate fields, including nulls, and does not recompute them. A column that is absent from an older stored file loads as null. Load does not alter that file. `app/metrics/` still does not call Ollama and does not call `psutil`.
+
+`frontend/` reads measurements it is given. It does not calculate TTFT, TPOT, percentiles, throughput, or error rate. It does not call Ollama, does not call `psutil`, does not open SQLite, and does not call `summarize`. The four pages are Overview, Benchmark configuration, Results, and Experiment history. FastAPI and the five execution states stay out. The benchmark, metrics, optimization, routing, monitoring, and database boundaries stay as Day 13 wrote them. A chart draws a series it is given. A chart is not a new latency formula. Selection is not a percentile.
 
 ## Execution states
 
