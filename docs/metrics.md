@@ -142,6 +142,16 @@ A serving comparison uses the existing formulas. `num_thread` and the concurrenc
 
 An omitted `num_thread` stays unset. It is not stored as 0. Concurrency 8 and `num_ctx` stay unvaried. The latency, throughput, percentile, and error-rate formulas above stay as Day 6 wrote them.
 
+## Experiment comparison
+
+A comparison delta is the candidate's stored aggregate minus the baseline's stored aggregate. An unset side leaves that delta unset. This delta is not a new latency formula. It reads the stored aggregates. It does not replace the latency, throughput, percentile, or error-rate formulas.
+
+The phase label uses the existing TTFT and decode-duration functions. It does not use `eval_duration`. The label is the larger of those two client-clock sums on successful measured rows. It is not a latency formula.
+
+A CPU sample is not a latency. The stored sample range is not a latency delta.
+
+The latency, throughput, percentile, and error-rate formulas above stay as Day 6 wrote them.
+
 ## Resource samples
 
 CPU percent, system RAM, and process RAM are samples taken while a run is in flight. They are not a latency formula and they are not a throughput formula. The latency, throughput, percentile, and error-rate formulas above are unchanged.

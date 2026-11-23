@@ -2,15 +2,18 @@
 
 ``save_experiment`` writes the snapshot, every request row, the resource
 samples, and the aggregate columns. ``load_experiment`` returns those stored
-values. It does not call ``summarize``, ``ttft_ms``, or ``tpot_ms``. It does
-not rank percentiles, and it does not recompute throughput.
+values. ``load_experiments`` returns every stored experiment in ascending id
+order, using that same mapping. Neither load calls ``summarize``, ``ttft_ms``,
+or ``tpot_ms``. They do not rank percentiles, and they do not recompute
+throughput.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.benchmark.records import BenchmarkRun, RequestRecord
@@ -111,11 +114,12 @@ def load_experiment(session: Session, experiment_id: int) -> StoredExperiment:
     """Return the stored snapshot, rows, samples, and aggregate fields.
 
     Warm-up and measured rows stay apart, in the order they were saved.
-    Unset aggregate fields stay null. This function does not rank percentiles
-    and does not recompute throughput.
+    Unset aggregate fields stay null. A column that is absent from an older
+    stored file loads as null. This function does not alter that file. It
+    does not rank percentiles and does not recompute throughput.
     """
 
-    experiment = session.get(ExperimentRow, experiment_id)
+    experiment = _experiment_record(session, experiment_id)
     if experiment is None:
         raise LookupError(f"no stored experiment {experiment_id}")
     request_rows = session.scalars(
@@ -147,6 +151,46 @@ def load_experiment(session: Session, experiment_id: int) -> StoredExperiment:
             request_throughput_rps=experiment.request_throughput_rps,
         ),
     )
+
+
+def _experiment_record(session: Session, experiment_id: int) -> SimpleNamespace | None:
+    """Read one experiment row. A column missing from the file stays null."""
+
+    present = _stored_column_names(session, "experiments")
+    mapped = [column.name for column in ExperimentRow.__table__.columns]
+    selected = [name for name in mapped if name in present]
+    if "id" not in selected:
+        raise LookupError("stored experiments table has no id column")
+    statement = text(
+        "SELECT "
+        + ", ".join(selected)
+        + " FROM experiments WHERE id = :experiment_id"
+    )
+    row = session.execute(statement, {"experiment_id": experiment_id}).mappings().first()
+    if row is None:
+        return None
+    values = {name: None for name in mapped}
+    values.update(row)
+    if values["think"] is not None:
+        values["think"] = bool(values["think"])
+    return SimpleNamespace(**values)
+
+
+def _stored_column_names(session: Session, table: str) -> set[str]:
+    rows = session.execute(text(f"PRAGMA table_info({table})")).all()
+    return {row[1] for row in rows}
+
+
+def load_experiments(session: Session) -> tuple[StoredExperiment, ...]:
+    """Return every stored experiment in ascending id order.
+
+    Each item uses the same row mapping as ``load_experiment``. Unset
+    aggregates stay null. This function does not call ``summarize``,
+    ``ttft_ms``, or ``tpot_ms``.
+    """
+
+    experiment_ids = session.scalars(select(ExperimentRow.id).order_by(ExperimentRow.id)).all()
+    return tuple(load_experiment(session, experiment_id) for experiment_id in experiment_ids)
 
 
 def _request_row(experiment_id: int, ordinal: int, record: RequestRecord) -> RequestRow:

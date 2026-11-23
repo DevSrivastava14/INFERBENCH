@@ -436,3 +436,49 @@ Notes that are not open problems: the mocked serving runs use 1 warm-up call and
 
 Day 11: performance analysis. Baseline comparison, bottleneck identification, and experiment comparison stay on that day. Thinking on versus off, concurrency 8, `num_ctx`, and a same-model quantization run stay later. Do not treat a Day 10 live duration, a CPU sample, or a timing from these mocked tests, as a benchmark result. Do not copy a figure from `docs/serving-findings.md` into `LEARN.md` or into a pytest assertion.
 
+## 2026-11-23 — Day 11: Performance Analysis
+
+### Five-line summary
+
+Day 11 is performance analysis: compare two stored experiments and name which client clock, prefill or decode, takes the larger share. Nothing from earlier days failed, so there is no fix-first work. The caller names the baseline and the candidate, and the delta is candidate minus baseline, with no winner. The findings script is that caller for the workload, model, and serving databases already on disk. The day is done when mocked pytest passes and the findings file matches those stored rows.
+
+### Completed
+
+- Updated `docs/methodology.md` so Day 11 performs procedure step 12 on two stored experiments. The caller supplies the baseline and the candidate. A delta is the candidate's stored aggregate minus the baseline's stored aggregate. An unset side leaves that delta unset. The comparison lists the snapshot fields that differ, names the phase label of each experiment, and reports the stored sample range. It does not name a winner, and it does not call a configuration an improvement. The phase label is the larger of the summed client TTFT and the summed client decode duration on successful measured rows. Warm-up, failed, and cancelled rows stay out. Equal sums greater than zero are even. No qualifying row, or both sums equal to zero, leaves the label unset. The label does not use `eval_duration`. Step 9 still waits. This day does not repeat an experiment for variance, and it does not call Ollama. Thinking on versus off, concurrency 8, `num_ctx`, and a same-model quantization run stay later.
+- Pointed `docs/architecture.md` at `app/optimization/comparison.py` for `compare` and at `app/optimization/experiments.py` for the phase label. Removed the sentence that said not to add `app/optimization/`. The optimization module reads stored experiments. It does not call Ollama, it does not call `psutil`, it does not open SQLite, and it does not call `summarize`. The findings script is the caller that opens the database and names the pairs. `app/benchmark/` still does not own percentile math, still does not import metrics, and still does not open SQLite. `app/metrics/` still does not call Ollama and does not call `psutil`. The database still stores the summary it was given and does not recompute it. Routing, FastAPI, and the five execution states stay out.
+- Recorded in `docs/metrics.md` that a comparison delta is candidate minus baseline on the stored aggregates, and that this delta is not a new latency formula. The phase label uses the existing TTFT and decode-duration functions. It does not use `eval_duration`. A CPU sample is not a latency. The latency, throughput, percentile, and error-rate formulas stay as Day 6 wrote them. The percentile formula cell still says "P50 is the middle."
+- Added `phase_label` in `app/optimization/experiments.py`. It returns `prefill`, `decode`, `even`, or no value. It reads successful measured rows only. A row joins the sums only when `ttft_ms` and `decode_duration_ms` both return a value. It does not read `eval_duration`. It does not call Ollama, `psutil`, or `summarize`.
+- Added `compare` in `app/optimization/comparison.py`. It returns one frozen result with both experiment ids. For the eight stored aggregate fields, the delta is the candidate's stored field minus the baseline's stored field. A missing field on either side leaves that delta unset. It reads the stored `AggregateSummary` and does not call `summarize`. It stores both phase labels, the differing snapshot fields in the required order, and, for each side, the sample count and the min and max of system CPU percent and system RAM used. No samples leave those four numbers unset. A sample of 0 stays in the min. When the request-throughput delta and the P95 delta are both defined and both non-zero, it stores one sentence of the two signs. Otherwise that sentence is absent. The result type has no winner, improved, or recommendation field.
+- Added `load_experiments` in `app/database/repository.py`. It returns every stored experiment in ascending id order and uses the same row mapping as `load_experiment`. It does not call `summarize`, `ttft_ms`, or `tpot_ms`. Unset aggregates stay null. A column that is absent from an older stored file loads as null. A stored think value of 0 loads as false. The function does not alter the file.
+- Added `scripts/compare_stored.py`. It inserts the project root on `sys.path` before importing `app`. It reads `experiments/results/serving-config.sqlite`, `experiments/results/workload-sensitivity.sqlite`, and `experiments/results/model-comparison.sqlite` with `load_experiments`, checks every required pair, and writes `docs/analysis-findings.md` only after those checks pass. A missing file, a missing match, or a match that is not unique exits non-zero and does not write the findings file. The script does not construct an Ollama adapter, does not call `generate`, `generate_stream`, `show_model`, or `list_models`, and does not call `summarize`. The pair table is in the script. It is not inside `compare`. The four model pairs are marked as cross-model comparisons. `docs/analysis-findings.md` was written from 15 stored pairs. No figure from that file was copied into `LEARN.md`, `PROGRESS.md`, or a pytest assertion.
+
+### Files changed
+
+- `docs/methodology.md` (updated)
+- `docs/architecture.md` (updated)
+- `docs/metrics.md` (updated)
+- `app/optimization/__init__.py` (added)
+- `app/optimization/experiments.py` (added)
+- `app/optimization/comparison.py` (added)
+- `app/database/repository.py` (updated)
+- `tests/unit/test_comparison.py` (added)
+- `tests/unit/test_database.py` (updated)
+- `scripts/compare_stored.py` (added)
+- `docs/analysis-findings.md` (added)
+
+### Test results
+
+`python -m pytest`: 96 passed in 1.76s. Thirteen tests are new, and the existing 83 still pass. The run uses constructed experiments, the in-memory database, the fake adapter, the fake clock, and the httpx mock transport. It does not contact Ollama. No test asserts a latency number from a live server. Pytest does not collect the findings script, and it does not read `docs/analysis-findings.md` for an expected timing. A fresh load of the three stored databases reproduced that file, including the phase labels and the deltas. The three SQLite hashes were the same before and after the script.
+
+### Problems
+
+None left open.
+
+The first launch of `python scripts/compare_stored.py` failed before writing findings. `load_experiments` selected `experiments.think`, and SQLite reported that the column was missing. A direct read of `serving-config.sqlite` showed that file does have `think`. `workload-sensitivity.sqlite` was stored before that column existed, so its experiments table has no `think`, `num_thread`, quantization, parameter size, model size, or architecture column. `model-comparison.sqlite` has `think` and has no `num_thread` column. The request and sample tables match across all three files. The SQLite files were not rewritten. `load_experiment` now selects the columns the file has and leaves an absent column null. A stored think value of 0 still loads as false. The second launch exited 0 and wrote the findings file.
+
+Notes that are not open problems: a request-throughput delta of exactly zero, or a P95 delta of exactly zero, leaves the sign sentence absent, and the test covers an unset side. The setting fields are in the required order, and the test checks `think` before `num_thread` and that matching concurrency stays off the list. The script's exits for a missing file, a missing match, and a match that is not unique were not executed. This run used the three files already on disk. `LEARN.md` and `docs/day1-check.md` were already modified in the working tree. They were not edited today, and they do not hold a figure from the findings file. Day 2 through Day 10 notes were left as notes.
+
+### Next steps
+
+Day 12: routing fundamentals. Policy-based routing, workload-aware selection, constraints, latency budgets, and model capabilities stay on that day. Do not treat a Day 11 delta, phase label, or CPU sample as a recommendation. Do not copy a figure from `docs/analysis-findings.md` into `LEARN.md` or into a pytest assertion.
+

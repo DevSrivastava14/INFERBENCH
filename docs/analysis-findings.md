@@ -1,0 +1,866 @@
+# Analysis findings
+
+These figures were loaded from the three stored SQLite files through `load_experiments` and `compare`.
+No new Ollama call was made.
+Step 9 was not run.
+The measured count on these stored runs is 3.
+A delta is the candidate's stored aggregate minus the baseline's stored aggregate.
+An omitted num_thread is written as omitted, not as 0.
+A Qwen-versus-Gemma pair is a cross-model comparison and not a quantization result.
+Thinking on versus off was not run.
+This file does not name a winner or recommend a setting.
+A CPU sample of 0 stays a sample.
+
+## serving-config.sqlite / baseline 1 / candidate 2
+
+- Database file: serving-config.sqlite
+- Baseline experiment id: 1
+- Candidate experiment id: 2
+- Baseline model: gemma3:1b
+- Candidate model: gemma3:1b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: short_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 2
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: omitted
+- Candidate think: omitted
+- Differing settings:
+  - concurrency: 1 versus 2
+- Baseline average_ms: 1334.79116667
+- Candidate average_ms: 1926.48123333
+- average_ms delta: 591.690066666
+- Baseline median_ms: 1331.4691
+- Candidate median_ms: 1798.9489
+- median_ms delta: 467.479799999
+- Baseline p50_ms: 1331.4691
+- Candidate p50_ms: 1798.9489
+- p50_ms delta: 467.479799999
+- Baseline p95_ms: 1359.2416
+- Candidate p95_ms: 2615.4398
+- p95_ms delta: 1256.1982
+- Baseline p99_ms: 1359.2416
+- Candidate p99_ms: 2615.4398
+- p99_ms delta: 1256.1982
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 38.2062119798
+- Candidate generation_throughput_tps: 46.5055668617
+- generation_throughput_tps delta: 8.29935488185
+- Baseline request_throughput_rps: 0.749153494009
+- Candidate request_throughput_rps: 0.853653438956
+- request_throughput_rps delta: 0.104499944946
+- Baseline phase label: decode
+- Candidate phase label: prefill
+- Baseline sample count: 9
+- Baseline min system CPU percent: 25.3
+- Baseline max system CPU percent: 57.6
+- Baseline min system RAM used: 11234533376
+- Baseline max system RAM used: 12113428480
+- Candidate sample count: 6
+- Candidate min system CPU percent: 34.2
+- Candidate max system CPU percent: 61.3
+- Candidate min system RAM used: 12113612800
+- Candidate max system RAM used: 12140797952
+- Sign sentence: Request throughput is higher and P95 is higher.
+
+## serving-config.sqlite / baseline 1 / candidate 3
+
+- Database file: serving-config.sqlite
+- Baseline experiment id: 1
+- Candidate experiment id: 3
+- Baseline model: gemma3:1b
+- Candidate model: gemma3:1b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: short_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 4
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: omitted
+- Candidate think: omitted
+- Differing settings:
+  - concurrency: 1 versus 4
+- Baseline average_ms: 1334.79116667
+- Candidate average_ms: 2525.2039
+- average_ms delta: 1190.41273333
+- Baseline median_ms: 1331.4691
+- Candidate median_ms: 2202.4885
+- median_ms delta: 871.0194
+- Baseline p50_ms: 1331.4691
+- Candidate p50_ms: 2202.4885
+- p50_ms delta: 871.0194
+- Baseline p95_ms: 1359.2416
+- Candidate p95_ms: 3724.3681
+- p95_ms delta: 2365.1265
+- Baseline p99_ms: 1359.2416
+- Candidate p99_ms: 3724.3681
+- p99_ms delta: 2365.1265
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 38.2062119798
+- Candidate generation_throughput_tps: 39.4618651223
+- generation_throughput_tps delta: 1.25565314246
+- Baseline request_throughput_rps: 0.749153494009
+- Candidate request_throughput_rps: 0.80550577157
+- request_throughput_rps delta: 0.0563522775604
+- Baseline phase label: decode
+- Candidate phase label: prefill
+- Baseline sample count: 9
+- Baseline min system CPU percent: 25.3
+- Baseline max system CPU percent: 57.6
+- Baseline min system RAM used: 11234533376
+- Baseline max system RAM used: 12113428480
+- Candidate sample count: 6
+- Candidate min system CPU percent: 39.7
+- Candidate max system CPU percent: 60
+- Candidate min system RAM used: 12120559616
+- Candidate max system RAM used: 12154695680
+- Sign sentence: Request throughput is higher and P95 is higher.
+
+## serving-config.sqlite / baseline 1 / candidate 4
+
+- Database file: serving-config.sqlite
+- Baseline experiment id: 1
+- Candidate experiment id: 4
+- Baseline model: gemma3:1b
+- Candidate model: gemma3:1b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: short_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: 4
+- Baseline think: omitted
+- Candidate think: omitted
+- Differing settings:
+  - num_thread: omitted versus 4
+- Baseline average_ms: 1334.79116667
+- Candidate average_ms: 1358.814
+- average_ms delta: 24.0228333332
+- Baseline median_ms: 1331.4691
+- Candidate median_ms: 1362.1147
+- median_ms delta: 30.6455999998
+- Baseline p50_ms: 1331.4691
+- Candidate p50_ms: 1362.1147
+- p50_ms delta: 30.6455999998
+- Baseline p95_ms: 1359.2416
+- Candidate p95_ms: 1390.3817
+- p95_ms delta: 31.1400999999
+- Baseline p99_ms: 1359.2416
+- Candidate p99_ms: 1390.3817
+- p99_ms delta: 31.1400999999
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 38.2062119798
+- Candidate generation_throughput_tps: 37.0335422822
+- generation_throughput_tps delta: -1.17266969762
+- Baseline request_throughput_rps: 0.749153494009
+- Candidate request_throughput_rps: 0.735913854513
+- request_throughput_rps delta: -0.0132396394964
+- Baseline phase label: decode
+- Candidate phase label: decode
+- Baseline sample count: 9
+- Baseline min system CPU percent: 25.3
+- Baseline max system CPU percent: 57.6
+- Baseline min system RAM used: 11234533376
+- Baseline max system RAM used: 12113428480
+- Candidate sample count: 9
+- Candidate min system CPU percent: 14.5
+- Candidate max system CPU percent: 40.1
+- Candidate min system RAM used: 11285745664
+- Candidate max system RAM used: 12157734912
+- Sign sentence: Request throughput is lower and P95 is higher.
+
+## serving-config.sqlite / baseline 1 / candidate 5
+
+- Database file: serving-config.sqlite
+- Baseline experiment id: 1
+- Candidate experiment id: 5
+- Baseline model: gemma3:1b
+- Candidate model: gemma3:1b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: short_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: 12
+- Baseline think: omitted
+- Candidate think: omitted
+- Differing settings:
+  - num_thread: omitted versus 12
+- Baseline average_ms: 1334.79116667
+- Candidate average_ms: 1395.1038
+- average_ms delta: 60.3126333332
+- Baseline median_ms: 1331.4691
+- Candidate median_ms: 1408.4479
+- median_ms delta: 76.9787999998
+- Baseline p50_ms: 1331.4691
+- Candidate p50_ms: 1408.4479
+- p50_ms delta: 76.9787999998
+- Baseline p95_ms: 1359.2416
+- Candidate p95_ms: 1452.259
+- p95_ms delta: 93.0173999996
+- Baseline p99_ms: 1359.2416
+- Candidate p99_ms: 1452.259
+- p99_ms delta: 93.0173999996
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 38.2062119798
+- Candidate generation_throughput_tps: 36.5793938215
+- generation_throughput_tps delta: -1.62681815832
+- Baseline request_throughput_rps: 0.749153494009
+- Candidate request_throughput_rps: 0.716772042909
+- request_throughput_rps delta: -0.0323814511007
+- Baseline phase label: decode
+- Candidate phase label: decode
+- Baseline sample count: 9
+- Baseline min system CPU percent: 25.3
+- Baseline max system CPU percent: 57.6
+- Baseline min system RAM used: 11234533376
+- Baseline max system RAM used: 12113428480
+- Candidate sample count: 9
+- Candidate min system CPU percent: 20.8
+- Candidate max system CPU percent: 94.3
+- Candidate min system RAM used: 11263688704
+- Candidate max system RAM used: 12108709888
+- Sign sentence: Request throughput is lower and P95 is higher.
+
+## serving-config.sqlite / baseline 6 / candidate 7
+
+- Database file: serving-config.sqlite
+- Baseline experiment id: 6
+- Candidate experiment id: 7
+- Baseline model: qwen3.5:2b
+- Candidate model: qwen3.5:2b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: short_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 2
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: false
+- Candidate think: false
+- Differing settings:
+  - concurrency: 1 versus 2
+- Baseline average_ms: 2523.38503333
+- Candidate average_ms: 3924.33136667
+- average_ms delta: 1400.94633333
+- Baseline median_ms: 2528.6325
+- Candidate median_ms: 4135.9959
+- median_ms delta: 1607.3634
+- Baseline p50_ms: 2528.6325
+- Candidate p50_ms: 4135.9959
+- p50_ms delta: 1607.3634
+- Baseline p95_ms: 2623.8745
+- Candidate p95_ms: 5033.6933
+- p95_ms delta: 2409.8188
+- Baseline p99_ms: 2623.8745
+- Candidate p99_ms: 5033.6933
+- p99_ms delta: 2409.8188
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 16.4145603922
+- Candidate generation_throughput_tps: 17.508677191
+- generation_throughput_tps delta: 1.09411679882
+- Baseline request_throughput_rps: 0.396285866199
+- Candidate request_throughput_rps: 0.423603730797
+- request_throughput_rps delta: 0.0273178645976
+- Baseline phase label: decode
+- Candidate phase label: prefill
+- Baseline sample count: 21
+- Baseline min system CPU percent: 16.2
+- Baseline max system CPU percent: 74.5
+- Baseline min system RAM used: 12078624768
+- Baseline max system RAM used: 14837891072
+- Candidate sample count: 12
+- Candidate min system CPU percent: 37.6
+- Candidate max system CPU percent: 73.3
+- Candidate min system RAM used: 14816530432
+- Candidate max system RAM used: 15037558784
+- Sign sentence: Request throughput is higher and P95 is higher.
+
+## serving-config.sqlite / baseline 6 / candidate 8
+
+- Database file: serving-config.sqlite
+- Baseline experiment id: 6
+- Candidate experiment id: 8
+- Baseline model: qwen3.5:2b
+- Candidate model: qwen3.5:2b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: short_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 4
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: false
+- Candidate think: false
+- Differing settings:
+  - concurrency: 1 versus 4
+- Baseline average_ms: 2523.38503333
+- Candidate average_ms: 5270.34846667
+- average_ms delta: 2746.96343333
+- Baseline median_ms: 2528.6325
+- Candidate median_ms: 5237.7223
+- median_ms delta: 2709.0898
+- Baseline p50_ms: 2528.6325
+- Candidate p50_ms: 5237.7223
+- p50_ms delta: 2709.0898
+- Baseline p95_ms: 2623.8745
+- Candidate p95_ms: 7640.4274
+- p95_ms delta: 5016.5529
+- Baseline p99_ms: 2623.8745
+- Candidate p99_ms: 7640.4274
+- p99_ms delta: 5016.5529
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 16.4145603922
+- Candidate generation_throughput_tps: 14.2613786861
+- generation_throughput_tps delta: -2.15318170606
+- Baseline request_throughput_rps: 0.396285866199
+- Candidate request_throughput_rps: 0.360219496148
+- request_throughput_rps delta: -0.0360663700513
+- Baseline phase label: decode
+- Candidate phase label: prefill
+- Baseline sample count: 21
+- Baseline min system CPU percent: 16.2
+- Baseline max system CPU percent: 74.5
+- Baseline min system RAM used: 12078624768
+- Baseline max system RAM used: 14837891072
+- Candidate sample count: 14
+- Candidate min system CPU percent: 27.4
+- Candidate max system CPU percent: 89.9
+- Candidate min system RAM used: 15020036096
+- Candidate max system RAM used: 15420555264
+- Sign sentence: Request throughput is lower and P95 is higher.
+
+## serving-config.sqlite / baseline 6 / candidate 9
+
+- Database file: serving-config.sqlite
+- Baseline experiment id: 6
+- Candidate experiment id: 9
+- Baseline model: qwen3.5:2b
+- Candidate model: qwen3.5:2b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: short_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: 4
+- Baseline think: false
+- Candidate think: false
+- Differing settings:
+  - num_thread: omitted versus 4
+- Baseline average_ms: 2523.38503333
+- Candidate average_ms: 3123.96033333
+- average_ms delta: 600.5753
+- Baseline median_ms: 2528.6325
+- Candidate median_ms: 3079.6808
+- median_ms delta: 551.0483
+- Baseline p50_ms: 2528.6325
+- Candidate p50_ms: 3079.6808
+- p50_ms delta: 551.0483
+- Baseline p95_ms: 2623.8745
+- Candidate p95_ms: 3253.2943
+- p95_ms delta: 629.419800001
+- Baseline p99_ms: 2623.8745
+- Candidate p99_ms: 3253.2943
+- p99_ms delta: 629.419800001
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 16.4145603922
+- Candidate generation_throughput_tps: 13.3411221399
+- generation_throughput_tps delta: -3.07343825231
+- Baseline request_throughput_rps: 0.396285866199
+- Candidate request_throughput_rps: 0.320100291262
+- request_throughput_rps delta: -0.0761855749366
+- Baseline phase label: decode
+- Candidate phase label: decode
+- Baseline sample count: 21
+- Baseline min system CPU percent: 16.2
+- Baseline max system CPU percent: 74.5
+- Baseline min system RAM used: 12078624768
+- Baseline max system RAM used: 14837891072
+- Candidate sample count: 23
+- Candidate min system CPU percent: 19
+- Candidate max system CPU percent: 59.3
+- Candidate min system RAM used: 11947696128
+- Candidate max system RAM used: 15358070784
+- Sign sentence: Request throughput is lower and P95 is higher.
+
+## serving-config.sqlite / baseline 6 / candidate 10
+
+- Database file: serving-config.sqlite
+- Baseline experiment id: 6
+- Candidate experiment id: 10
+- Baseline model: qwen3.5:2b
+- Candidate model: qwen3.5:2b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: short_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: 12
+- Baseline think: false
+- Candidate think: false
+- Differing settings:
+  - num_thread: omitted versus 12
+- Baseline average_ms: 2523.38503333
+- Candidate average_ms: 3136.43243333
+- average_ms delta: 613.0474
+- Baseline median_ms: 2528.6325
+- Candidate median_ms: 3123.4442
+- median_ms delta: 594.8117
+- Baseline p50_ms: 2528.6325
+- Candidate p50_ms: 3123.4442
+- p50_ms delta: 594.8117
+- Baseline p95_ms: 2623.8745
+- Candidate p95_ms: 3174.7426
+- p95_ms delta: 550.8681
+- Baseline p99_ms: 2623.8745
+- Candidate p99_ms: 3174.7426
+- p99_ms delta: 550.8681
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 16.4145603922
+- Candidate generation_throughput_tps: 13.287456728
+- generation_throughput_tps delta: -3.12710366412
+- Baseline request_throughput_rps: 0.396285866199
+- Candidate request_throughput_rps: 0.318826270417
+- request_throughput_rps delta: -0.0774595957816
+- Baseline phase label: decode
+- Candidate phase label: decode
+- Baseline sample count: 21
+- Baseline min system CPU percent: 16.2
+- Baseline max system CPU percent: 74.5
+- Baseline min system RAM used: 12078624768
+- Baseline max system RAM used: 14837891072
+- Candidate sample count: 21
+- Candidate min system CPU percent: 15.4
+- Candidate max system CPU percent: 100
+- Candidate min system RAM used: 11887570944
+- Candidate max system RAM used: 14893793280
+- Sign sentence: Request throughput is lower and P95 is higher.
+
+## workload-sensitivity.sqlite / baseline 1 / candidate 2
+
+- Database file: workload-sensitivity.sqlite
+- Baseline experiment id: 1
+- Candidate experiment id: 2
+- Baseline model: gemma3:1b
+- Candidate model: gemma3:1b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: long_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: omitted
+- Candidate think: omitted
+- Differing settings:
+  - profile_name: short_prompt_short_output versus long_prompt_short_output
+  - prompt: Name one fact about local inference. versus Name one fact about local inference. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. 
+- Baseline average_ms: 1904.21093333
+- Candidate average_ms: 1894.0083
+- average_ms delta: -10.2026333331
+- Baseline median_ms: 1865.8868
+- Candidate median_ms: 1902.968
+- median_ms delta: 37.0812000006
+- Baseline p50_ms: 1865.8868
+- Candidate p50_ms: 1902.968
+- p50_ms delta: 37.0812000006
+- Baseline p95_ms: 2010.3051
+- Candidate p95_ms: 1921.6352
+- p95_ms delta: -88.6698999998
+- Baseline p99_ms: 2010.3051
+- Candidate p99_ms: 1921.6352
+- p99_ms delta: -88.6698999998
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 38.2296106254
+- Candidate generation_throughput_tps: 37.4678113447
+- generation_throughput_tps delta: -0.761799280712
+- Baseline request_throughput_rps: 0.525124052681
+- Candidate request_throughput_rps: 0.527953333994
+- request_throughput_rps delta: 0.00282928131304
+- Baseline phase label: prefill
+- Candidate phase label: prefill
+- Baseline sample count: 13
+- Baseline min system CPU percent: 11.7
+- Baseline max system CPU percent: 64.1
+- Baseline min system RAM used: 12749860864
+- Baseline max system RAM used: 13643096064
+- Candidate sample count: 10
+- Candidate min system CPU percent: 23.5
+- Candidate max system CPU percent: 64.5
+- Candidate min system RAM used: 13522186240
+- Candidate max system RAM used: 13565657088
+- Sign sentence: Request throughput is higher and P95 is lower.
+
+## workload-sensitivity.sqlite / baseline 1 / candidate 3
+
+- Database file: workload-sensitivity.sqlite
+- Baseline experiment id: 1
+- Candidate experiment id: 3
+- Baseline model: gemma3:1b
+- Candidate model: gemma3:1b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: short_prompt_long_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: omitted
+- Candidate think: omitted
+- Differing settings:
+  - profile_name: short_prompt_short_output versus short_prompt_long_output
+  - num_predict: 32 versus 128
+- Baseline average_ms: 1904.21093333
+- Candidate average_ms: 3754.33963333
+- average_ms delta: 1850.1287
+- Baseline median_ms: 1865.8868
+- Candidate median_ms: 3693.5788
+- median_ms delta: 1827.692
+- Baseline p50_ms: 1865.8868
+- Candidate p50_ms: 3693.5788
+- p50_ms delta: 1827.692
+- Baseline p95_ms: 2010.3051
+- Candidate p95_ms: 3918.8051
+- p95_ms delta: 1908.5
+- Baseline p99_ms: 2010.3051
+- Candidate p99_ms: 3918.8051
+- p99_ms delta: 1908.5
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 38.2296106254
+- Candidate generation_throughput_tps: 37.4638430613
+- generation_throughput_tps delta: -0.765767564148
+- Baseline request_throughput_rps: 0.525124052681
+- Candidate request_throughput_rps: 0.266350107788
+- request_throughput_rps delta: -0.258773944893
+- Baseline phase label: prefill
+- Candidate phase label: decode
+- Baseline sample count: 13
+- Baseline min system CPU percent: 11.7
+- Baseline max system CPU percent: 64.1
+- Baseline min system RAM used: 12749860864
+- Baseline max system RAM used: 13643096064
+- Candidate sample count: 16
+- Candidate min system CPU percent: 19.3
+- Candidate max system CPU percent: 76.2
+- Candidate min system RAM used: 13526147072
+- Candidate max system RAM used: 13591224320
+- Sign sentence: Request throughput is lower and P95 is higher.
+
+## workload-sensitivity.sqlite / baseline 1 / candidate 4
+
+- Database file: workload-sensitivity.sqlite
+- Baseline experiment id: 1
+- Candidate experiment id: 4
+- Baseline model: gemma3:1b
+- Candidate model: gemma3:1b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: long_prompt_long_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: omitted
+- Candidate think: omitted
+- Differing settings:
+  - profile_name: short_prompt_short_output versus long_prompt_long_output
+  - prompt: Name one fact about local inference. versus Name one fact about local inference. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. This sentence only makes the prompt longer. 
+  - num_predict: 32 versus 128
+- Baseline average_ms: 1904.21093333
+- Candidate average_ms: 2885.93213333
+- average_ms delta: 981.7212
+- Baseline median_ms: 1865.8868
+- Candidate median_ms: 2658.285
+- median_ms delta: 792.3982
+- Baseline p50_ms: 1865.8868
+- Candidate p50_ms: 2658.285
+- p50_ms delta: 792.3982
+- Baseline p95_ms: 2010.3051
+- Candidate p95_ms: 3347.9461
+- p95_ms delta: 1337.641
+- Baseline p99_ms: 2010.3051
+- Candidate p99_ms: 3347.9461
+- p99_ms delta: 1337.641
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 38.2296106254
+- Candidate generation_throughput_tps: 36.8991694735
+- generation_throughput_tps delta: -1.33044115195
+- Baseline request_throughput_rps: 0.525124052681
+- Candidate request_throughput_rps: 0.346494915759
+- request_throughput_rps delta: -0.178629136922
+- Baseline phase label: prefill
+- Candidate phase label: decode
+- Baseline sample count: 13
+- Baseline min system CPU percent: 11.7
+- Baseline max system CPU percent: 64.1
+- Baseline min system RAM used: 12749860864
+- Baseline max system RAM used: 13643096064
+- Candidate sample count: 14
+- Candidate min system CPU percent: 26.7
+- Candidate max system CPU percent: 66.5
+- Candidate min system RAM used: 13543403520
+- Candidate max system RAM used: 13583855616
+- Sign sentence: Request throughput is lower and P95 is higher.
+
+## model-comparison.sqlite / baseline 5 / candidate 1
+
+- Database file: model-comparison.sqlite
+- Baseline experiment id: 5
+- Candidate experiment id: 1
+- Baseline model: gemma3:1b
+- Candidate model: qwen3.5:2b
+- Baseline profile name: short_prompt_short_output
+- Candidate profile name: short_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: omitted
+- Candidate think: false
+- This pair is a cross-model comparison.
+- Differing settings:
+  - model: gemma3:1b versus qwen3.5:2b
+  - think: omitted versus false
+  - quantization: Q4_K_M versus Q8_0
+  - parameter_size: 999.89M versus 1.9B
+  - model_size_bytes: 806067407 versus 2683396812
+  - architecture: gemma3 versus qwen35
+- Baseline average_ms: 1727.50933333
+- Candidate average_ms: 2993.2152
+- average_ms delta: 1265.70586667
+- Baseline median_ms: 1726.5384
+- Candidate median_ms: 2986.1191
+- median_ms delta: 1259.5807
+- Baseline p50_ms: 1726.5384
+- Candidate p50_ms: 2986.1191
+- p50_ms delta: 1259.5807
+- Baseline p95_ms: 1746.5176
+- Candidate p95_ms: 3007.5911
+- p95_ms delta: 1261.0735
+- Baseline p99_ms: 1746.5176
+- Candidate p99_ms: 3007.5911
+- p99_ms delta: 1261.0735
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 30.7923121732
+- Candidate generation_throughput_tps: 16.6995398268
+- generation_throughput_tps delta: -14.0927723464
+- Baseline request_throughput_rps: 0.578848002561
+- Candidate request_throughput_rps: 0.334073123417
+- request_throughput_rps delta: -0.244774879143
+- Baseline phase label: decode
+- Candidate phase label: decode
+- Baseline sample count: 11
+- Baseline min system CPU percent: 13.2
+- Baseline max system CPU percent: 59.4
+- Baseline min system RAM used: 14334287872
+- Baseline max system RAM used: 15175163904
+- Candidate sample count: 24
+- Candidate min system CPU percent: 17.1
+- Candidate max system CPU percent: 71.2
+- Candidate min system RAM used: 12672376832
+- Candidate max system RAM used: 15659819008
+- Sign sentence: Request throughput is lower and P95 is higher.
+
+## model-comparison.sqlite / baseline 6 / candidate 2
+
+- Database file: model-comparison.sqlite
+- Baseline experiment id: 6
+- Candidate experiment id: 2
+- Baseline model: gemma3:1b
+- Candidate model: qwen3.5:2b
+- Baseline profile name: long_prompt_short_output
+- Candidate profile name: long_prompt_short_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: omitted
+- Candidate think: false
+- This pair is a cross-model comparison.
+- Differing settings:
+  - model: gemma3:1b versus qwen3.5:2b
+  - think: omitted versus false
+  - quantization: Q4_K_M versus Q8_0
+  - parameter_size: 999.89M versus 1.9B
+  - model_size_bytes: 806067407 versus 2683396812
+  - architecture: gemma3 versus qwen35
+- Baseline average_ms: 1707.36096667
+- Candidate average_ms: 3417.75136667
+- average_ms delta: 1710.3904
+- Baseline median_ms: 1704.9806
+- Candidate median_ms: 3447.4196
+- median_ms delta: 1742.439
+- Baseline p50_ms: 1704.9806
+- Candidate p50_ms: 3447.4196
+- p50_ms delta: 1742.439
+- Baseline p95_ms: 1761.2129
+- Candidate p95_ms: 3585.4654
+- p95_ms delta: 1824.2525
+- Baseline p99_ms: 1761.2129
+- Candidate p99_ms: 3585.4654
+- p99_ms delta: 1824.2525
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 29.5303066307
+- Candidate generation_throughput_tps: 14.8645643094
+- generation_throughput_tps delta: -14.6657423213
+- Baseline request_throughput_rps: 0.585677731336
+- Candidate request_throughput_rps: 0.292577681642
+- request_throughput_rps delta: -0.293100049694
+- Baseline phase label: decode
+- Candidate phase label: decode
+- Baseline sample count: 12
+- Baseline min system CPU percent: 33.2
+- Baseline max system CPU percent: 66.5
+- Baseline min system RAM used: 15096156160
+- Baseline max system RAM used: 15139045376
+- Candidate sample count: 20
+- Candidate min system CPU percent: 35.6
+- Candidate max system CPU percent: 90.5
+- Candidate min system RAM used: 14291156992
+- Candidate max system RAM used: 16525549568
+- Sign sentence: Request throughput is lower and P95 is higher.
+
+## model-comparison.sqlite / baseline 7 / candidate 3
+
+- Database file: model-comparison.sqlite
+- Baseline experiment id: 7
+- Candidate experiment id: 3
+- Baseline model: gemma3:1b
+- Candidate model: qwen3.5:2b
+- Baseline profile name: short_prompt_long_output
+- Candidate profile name: short_prompt_long_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: omitted
+- Candidate think: false
+- This pair is a cross-model comparison.
+- Differing settings:
+  - model: gemma3:1b versus qwen3.5:2b
+  - think: omitted versus false
+  - quantization: Q4_K_M versus Q8_0
+  - parameter_size: 999.89M versus 1.9B
+  - model_size_bytes: 806067407 versus 2683396812
+  - architecture: gemma3 versus qwen35
+- Baseline average_ms: 4587.2591
+- Candidate average_ms: 7489.91176667
+- average_ms delta: 2902.65266667
+- Baseline median_ms: 4362.2127
+- Candidate median_ms: 6965.3976
+- median_ms delta: 2603.1849
+- Baseline p50_ms: 4362.2127
+- Candidate p50_ms: 6965.3976
+- p50_ms delta: 2603.1849
+- Baseline p95_ms: 5413.6535
+- Candidate p95_ms: 10454.6061
+- p95_ms delta: 5040.9526
+- Baseline p99_ms: 5413.6535
+- Candidate p99_ms: 10454.6061
+- p99_ms delta: 5040.9526
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 27.7570903514
+- Candidate generation_throughput_tps: 13.4243940492
+- generation_throughput_tps delta: -14.3326963022
+- Baseline request_throughput_rps: 0.217992423194
+- Candidate request_throughput_rps: 0.133511539195
+- request_throughput_rps delta: -0.0844808839984
+- Baseline phase label: decode
+- Candidate phase label: decode
+- Baseline sample count: 22
+- Baseline min system CPU percent: 38.7
+- Baseline max system CPU percent: 63.3
+- Baseline min system RAM used: 15008407552
+- Baseline max system RAM used: 15107129344
+- Candidate sample count: 36
+- Candidate min system CPU percent: 25.5
+- Candidate max system CPU percent: 77.5
+- Candidate min system RAM used: 14258597888
+- Candidate max system RAM used: 14457069568
+- Sign sentence: Request throughput is lower and P95 is higher.
+
+## model-comparison.sqlite / baseline 8 / candidate 4
+
+- Database file: model-comparison.sqlite
+- Baseline experiment id: 8
+- Candidate experiment id: 4
+- Baseline model: gemma3:1b
+- Candidate model: qwen3.5:2b
+- Baseline profile name: long_prompt_long_output
+- Candidate profile name: long_prompt_long_output
+- Baseline concurrency: 1
+- Candidate concurrency: 1
+- Baseline num_thread: omitted
+- Candidate num_thread: omitted
+- Baseline think: omitted
+- Candidate think: false
+- This pair is a cross-model comparison.
+- Differing settings:
+  - model: gemma3:1b versus qwen3.5:2b
+  - think: omitted versus false
+  - quantization: Q4_K_M versus Q8_0
+  - parameter_size: 999.89M versus 1.9B
+  - model_size_bytes: 806067407 versus 2683396812
+  - architecture: gemma3 versus qwen35
+- Baseline average_ms: 3259.58746667
+- Candidate average_ms: 3391.654
+- average_ms delta: 132.066533334
+- Baseline median_ms: 3558.0768
+- Candidate median_ms: 3383.6442
+- median_ms delta: -174.4326
+- Baseline p50_ms: 3558.0768
+- Candidate p50_ms: 3383.6442
+- p50_ms delta: -174.4326
+- Baseline p95_ms: 3630.7703
+- Candidate p95_ms: 3648.9972
+- p95_ms delta: 18.2269000006
+- Baseline p99_ms: 3630.7703
+- Candidate p99_ms: 3648.9972
+- p99_ms delta: 18.2269000006
+- Baseline error_rate: 0
+- Candidate error_rate: 0
+- error_rate delta: 0
+- Baseline generation_throughput_tps: 27.3888914266
+- Candidate generation_throughput_tps: 13.7084091582
+- generation_throughput_tps delta: -13.6804822683
+- Baseline request_throughput_rps: 0.30678102959
+- Candidate request_throughput_rps: 0.294832705977
+- request_throughput_rps delta: -0.0119483236129
+- Baseline phase label: decode
+- Candidate phase label: decode
+- Baseline sample count: 16
+- Baseline min system CPU percent: 41.2
+- Baseline max system CPU percent: 66
+- Baseline min system RAM used: 14920609792
+- Baseline max system RAM used: 14997995520
+- Candidate sample count: 18
+- Candidate min system CPU percent: 29.1
+- Candidate max system CPU percent: 65.8
+- Candidate min system RAM used: 14267621376
+- Candidate max system RAM used: 14316548096
+- Sign sentence: Request throughput is lower and P95 is higher.
+

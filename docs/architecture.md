@@ -24,7 +24,7 @@ Local models, CPU and RAM monitoring, SQLite
 
 **Metrics.** Calculates client-observed TTFT, TPOT, end-to-end latency, generation throughput, request throughput, P50, P95, P99, and error rate from stored request records. Owns percentile calculation.
 
-**Optimization.** Compares stored experiment results, names bottlenecks those results support, and writes recommendations only from measured numbers.
+**Optimization.** Compares two stored experiments the caller supplies. A delta is the candidate's stored aggregate minus the baseline's stored aggregate. It names the larger client-clock phase of each experiment. It does not name a winner, and it does not call a configuration an improvement.
 
 **Routing.** Chooses a model from availability, workload, measured performance, and the selected policy. Policies to support later are static, workload-aware, latency-constrained, and availability-aware fallback.
 
@@ -38,7 +38,7 @@ These rules keep later days from mixing clocks and owners.
 
 - The metrics module does not call Ollama and does not call `psutil`.
 - Adapters do not compute percentiles.
-- The optimization module does not invent numbers. A recommendation needs a stored measurement.
+- The optimization module reads stored experiments. It does not invent numbers. It does not call Ollama, it does not call `psutil`, it does not open SQLite, and it does not call `summarize`. It does not name a winner.
 - The benchmark runner must not block the FastAPI event loop. That is a later requirement. Day 1 does not build the runner.
 
 A streaming response shows the split. The inference adapter reads the HTTP stream. The stream result carries `first_content_at`, the stamp of the first non-empty `response`. The adapter does not name that stamp TTFT, and it does not compute TPOT, throughput, or a percentile. The adapter sends `think` as a top-level generate field when the caller sets it. When the caller omits it, the key is absent. The adapter does not choose the flag from the model name. The adapter sends `num_thread` in `options` beside `num_predict` when the caller sets it. When the caller omits `num_thread`, that key is absent. An omitted value is not the integer 0.
@@ -49,7 +49,9 @@ A streaming response shows the split. The inference adapter reads the HTTP strea
 
 `app/benchmark/` stores the request rows, including the stamp, and it stores `profile_name`, the `think` flag, and the `num_thread` value the caller passes on the run. It still owns warm-up one call at a time, a measured concurrency cap, cancellation of in-flight measured calls, and one request row per started call. It still does not own percentile math, still does not import metrics, and still does not open SQLite. It may call an injected sampler. It still does not set the five execution states. The runner does not choose the think flag from the model name, and it does not choose `num_thread` from the model name or from the logical CPU count. It does not fill quantization, parameter size, model size, or architecture. The metrics module does not open an HTTP connection.
 
-`app/benchmark/workload.py` is the profile catalog. The runner stores `profile_name`. The snapshot stores the thread value the caller passed, or leaves it unset. It also stores the think flag and the model metadata the caller copied. The live script is a caller outside the runner, and that script is what opens the database. Do not add `app/optimization/`. `app/metrics/` still does not call Ollama and does not call `psutil`.
+`app/benchmark/workload.py` is the profile catalog. The runner stores `profile_name`. The snapshot stores the thread value the caller passed, or leaves it unset. It also stores the think flag and the model metadata the caller copied. The live script is a caller outside the runner, and that script is what opens the database. `app/benchmark/` still does not own percentile math, still does not import metrics, and still does not open SQLite. `app/metrics/` still does not call Ollama and does not call `psutil`.
+
+`app/optimization/comparison.py` compares two stored experiments with `compare`. `app/optimization/experiments.py` names the phase label. The optimization module reads stored experiments. It does not call Ollama, it does not call `psutil`, it does not open SQLite, and it does not call `summarize`. The findings script is the caller that opens the database and names the pairs. `app/benchmark/` still does not own percentile math, still does not import metrics, and still does not open SQLite. `app/metrics/` still does not call Ollama and does not call `psutil`. The database still stores the summary it was given and does not recompute it. This day does not add routing, FastAPI, or the five execution states.
 
 `app/monitoring/` owns CPU and RAM samples and hardware identity. It does not time tokens.
 
