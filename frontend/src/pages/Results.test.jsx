@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, expect, test, vi } from "vitest";
 import { Results } from "./Results.jsx";
 
 const metricNames = [
@@ -14,8 +15,24 @@ const metricNames = [
   "error rate",
 ];
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+function renderResults(path = "/results") {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/results" element={<Results />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 test("lists metric names and does not draw a series", () => {
-  const { container } = render(<Results />);
+  const fetchSpy = vi.fn();
+  vi.stubGlobal("fetch", fetchSpy);
+  const { container } = renderResults();
 
   for (const name of metricNames) {
     expect(screen.getByText(name)).toBeTruthy();
@@ -25,4 +42,47 @@ test("lists metric names and does not draw a series", () => {
   expect(screen.queryByText("110")).toBeNull();
   expect(screen.queryByText("120")).toBeNull();
   expect(container.querySelector("svg")).toBeNull();
+  expect(fetchSpy).not.toHaveBeenCalled();
+});
+
+test("shows stored values and the measured series for the selected id", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({
+          id: 4,
+          job_status: null,
+          summary: {
+            ttft_ms: null,
+            tpot_ms: null,
+            average_ms: 15,
+            generation_throughput_tps: 2,
+            request_throughput_rps: 1,
+            p50_ms: 16,
+            p95_ms: 17,
+            p99_ms: 18,
+            error_rate: 0,
+          },
+          measured: [{ end_to_end_ms: 40 }, { end_to_end_ms: 50 }],
+        }),
+      }),
+    ),
+  );
+  const { container } = renderResults("/results?source=dashboard&id=4");
+
+  expect((await screen.findAllByText("40")).length).toBeGreaterThan(0);
+  const list = screen.getByRole("list");
+  expect(list.textContent).toContain("15");
+  expect(list.textContent).toContain("16");
+  expect(list.textContent).toContain("17");
+  expect(list.textContent).toContain("18");
+  expect(list.textContent).toContain("0");
+  expect(screen.getAllByText("50").length).toBeGreaterThan(0);
+  expect(screen.queryByText("100")).toBeNull();
+  expect(screen.queryByText("110")).toBeNull();
+  expect(screen.queryByText("120")).toBeNull();
+  expect(container.querySelector("svg")).toBeTruthy();
+  expect(fetch).toHaveBeenCalledWith("/api/experiments/dashboard/4");
 });

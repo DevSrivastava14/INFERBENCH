@@ -642,4 +642,73 @@ Notes that are not open problems: the narrow layout is in the CSS and was not op
 
 Day 15: connect the dashboard to FastAPI. Benchmark execution, live progress, results retrieval, experiment comparisons, and routing visualization stay on that day. Do not treat an empty screen, or the fixture series 100, 110, and 120, as a benchmark result. Thinking on versus off, concurrency 8, `num_ctx`, and a same-model quantization run stay later.
 
+## 2026-11-24 — Day 15: Backend and Frontend Integration
+
+### Five-line summary
+
+Day 15 connects the dashboard to FastAPI so a run, a stored result, a comparison, and a routing decision show in the same workbench. Nothing from earlier days failed, so there is no fix-first work. A benchmark job uses the five states, request rows stay success and error_type, and the start call returns before the run finishes. The screen reads what the API returns and does not compute a metric or name a winner. The day is done when pytest and the frontend tests pass without contacting Ollama, and a started job can be watched until it is stored.
+
+### Completed
+
+- Updated `docs/architecture.md` so `app/main.py` and `app/api/` open SQLite, call `summarize`, and start the runner. FastAPI owns the connection. `job_status` is the API column. The five names are `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, and `CANCELLED`. Request rows stay `success` and `error_type`. The runner does not set those five names. The dashboard reads the API. It still does not calculate TTFT, TPOT, percentiles, throughput, or error rate, and it still does not call Ollama, `psutil`, or SQLite. Comparisons and Routing join the shell. `job_status` is nullable. Load leaves it null when the column is absent and does not alter the file. The benchmark, metrics, optimization, routing, monitoring, and database calculation boundaries stay as Day 14 wrote them, aside from that load.
+- Updated `docs/methodology.md` so Day 15 adds no procedure step, does not rerun step 12, and does not repeat an experiment for variance. The text does not name a winner. Step 9 still waits. Thinking on versus off, a concurrency-8 sweep, `num_ctx`, and a same-model quantization run stay later. A job state is not a latency. `docs/metrics.md` was not edited. The percentile formula cell still says "P50 is the middle."
+- Added FastAPI and uvicorn. The request schemas use the Pydantic that FastAPI already installs. `POST /api/jobs` stores `PENDING` and returns the id without awaiting `generate_stream`. The task sets `RUNNING`, reads the engine version, fills the hardware snapshot, and then starts the runner. A failure on that read sets `FAILED` and does not call `generate_stream`. A finished run stores the real snapshot and calls `summarize`. A raised run stores the sink rows and samples with null aggregates and sets `FAILED`. A set cancel event sets `CANCELLED` and stores the rows the runner returned. The stored retry count is 0. The task runs the one submitted model. `think` true is rejected and stores no job. `qwen3.5:2b` sends `think` false. `gemma3:1b` omits `think`. Blank warm-up, measured count, and concurrency use 2, 3, and 1. Blank `num_thread` stays unset. `num_ctx` is not a field.
+- New runs use `experiments/results/dashboard.sqlite`. History reads that file and then the four existing result files. Those four stay read-only. A missing result file contributes no rows and is not created. Each history item carries its source and its id. Overview returns engines, models, hardware, recent experiments, and the probe sample. One experiment returns the stored snapshot, rows, samples, and aggregates. Compare loads two source-and-id pairs and returns `compare`, including the sign sentence only when `compare` stored one. Route returns the decision from `route`. Compare and route do not call Ollama. Their JSON has no winner, improved, recommendation, or best field.
+- The dashboard proxies `/api` to `http://127.0.0.1:8000`. Overview, History, Results, and the run form render the payloads. A failed overview load says the load failed and does not invent a CPU sample or a model list. A payload CPU sample of 0 is shown. History renders the source, and a null `job_status` is a blank cell. Results lists the nine metrics from the stored summary and passes measured `end_to_end_ms` values to the existing chart. No selected id passes no series. Run posts the runner fields and polls while the job is `PENDING` or `RUNNING`. The page shows the state, the succeeded count, the failed count, and the latest CPU and RAM sample. The think control offers omitted and false. Comparisons posts two stored pairs and renders the deltas, both phase labels, the differing snapshot fields, and the sign sentence when the payload includes one. Routing posts a policy and one catalog row. The latency fields in that row are the values entered on the form. The page shows the selected model, the preferred model, the returned reason, the fallback count, and the failed constraints.
+
+### Files changed
+
+- `requirements.txt` (updated)
+- `docs/architecture.md` (updated)
+- `docs/methodology.md` (updated)
+- `app/benchmark/runner.py` (updated)
+- `app/database/models.py` (updated)
+- `app/database/repository.py` (updated)
+- `app/main.py` (added)
+- `app/api/__init__.py` (added)
+- `app/api/schemas.py` (added)
+- `app/api/routes.py` (added)
+- `app/api/service.py` (added)
+- `tests/unit/test_api.py` (added)
+- `tests/unit/test_benchmark.py` (updated)
+- `tests/unit/test_database.py` (updated)
+- `frontend/vite.config.js` (updated)
+- `frontend/src/services/experiments.js` (updated)
+- `frontend/src/App.jsx` (updated)
+- `frontend/src/layout/Shell.jsx` (updated)
+- `frontend/src/layout/Shell.test.jsx` (added)
+- `frontend/src/styles/layout.css` (updated)
+- `frontend/src/pages/Overview.jsx` (updated)
+- `frontend/src/pages/Overview.test.jsx` (updated)
+- `frontend/src/pages/Benchmark.jsx` (updated)
+- `frontend/src/pages/Benchmark.test.jsx` (updated)
+- `frontend/src/pages/History.jsx` (updated)
+- `frontend/src/pages/History.test.jsx` (updated)
+- `frontend/src/pages/Results.jsx` (updated)
+- `frontend/src/pages/Results.test.jsx` (updated)
+- `frontend/src/pages/Comparisons.jsx` (added)
+- `frontend/src/pages/Comparisons.test.jsx` (added)
+- `frontend/src/pages/Routing.jsx` (added)
+- `frontend/src/pages/Routing.test.jsx` (added)
+
+### Test results
+
+`python -m pytest`: 150 passed in 10.83s. Twelve tests are new in `tests/unit/test_api.py`, and three more cover the progress sink and a stored `job_status`. The earlier 135 still pass. The run uses a fake adapter and a temporary database. It does not contact Ollama. No test asserts a latency number from a live server. Pytest does not read a findings file for an expected timing.
+
+`npm test`: 19 passed. The chart test sees 100, 110, and 120. The Results page render with no selected experiment does not include that series. Overview, history, the configuration form, Comparisons, and Routing render from mocked `fetch` payloads. A mocked overview failure shows the load-failed sentence and no invented CPU sample or model list. Frontend tests do not read a findings file.
+
+`npm run build` succeeded. Vite reports the script chunk is 696 kB because Recharts is included. The build exits 0.
+
+### Problems
+
+None left open.
+
+The first frontend run failed one Results test. `shows stored values and the measured series for the selected id` looked up the text 15 and found two nodes: the stored end-to-end value, and a chart axis tick for the series 40 and 50. The page was already drawing the stored summary and the measured series. The assertion now reads those summary numbers from the metric list. The next frontend run passed.
+
+Notes that are not open problems: the routing form posts one catalog row, so a second stored model cannot be entered there. The narrow layout and the plainer screens stay Day 14 notes. The percentile formula cell was left as it stands. `LEARN.md` and `docs/day1-check.md` were already modified in the working tree. They were not edited today, and they do not hold a figure from a findings file. Installing FastAPI also upgraded `typing-extensions` and `typing-inspection` in the environment. Those upgrades were left in place. Day 2 through Day 14 notes were left as notes.
+
+### Next steps
+
+Day 16: testing and failure injection. Do not treat a dashboard payload, the fixture series 100, 110, and 120, a stored fallback count of 0, or a figure in an existing findings file as a new benchmark result. Thinking on versus off, concurrency 8, `num_ctx`, a same-model quantization run, CSV and JSON export, and procedure step 9 stay later.
+
 

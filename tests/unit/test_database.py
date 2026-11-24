@@ -483,3 +483,17 @@ def test_stored_fallback_count_1_and_retry_count_0_load_back() -> None:
     assert loaded.snapshot.retry_count == 0
     assert listed[0].snapshot.fallback_count == 1
     assert listed[0].snapshot.retry_count == 0
+    assert loaded.job_status is None
+
+
+def test_stored_job_status_loads_back_as_that_status() -> None:
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, _run(), _snapshot(), job_status="COMPLETED")
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiment(session, experiment_id)
+        listed = load_experiments(session)
+
+    assert loaded.job_status == "COMPLETED"
+    assert listed[0].job_status == "COMPLETED"

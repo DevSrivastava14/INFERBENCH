@@ -1,41 +1,106 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { loadExperiments } from "../services/experiments.js";
 
 const columns = [
-  "model",
-  "profile name",
-  "prompt",
-  "num_predict",
-  "warm-up count",
-  "measured count",
-  "concurrency",
-  "think",
-  "num_thread",
+  ["source", "source"],
+  ["id", "id"],
+  ["model", "model"],
+  ["profile_name", "profile name"],
+  ["prompt", "prompt"],
+  ["num_predict", "num_predict"],
+  ["warmup_count", "warm-up count"],
+  ["measured_count", "measured count"],
+  ["concurrency", "concurrency"],
+  ["think", "think"],
+  ["num_thread", "num_thread"],
+  ["job_status", "job status"],
 ];
 
+function cell(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+  if (value === false) {
+    return "false";
+  }
+  if (value === true) {
+    return "true";
+  }
+  return String(value);
+}
+
 export function History() {
-  const experiments = loadExperiments();
+  const [rows, setRows] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    loadExperiments().then(
+      (data) => {
+        if (active) {
+          setRows(data);
+        }
+      },
+      () => {
+        if (active) {
+          setFailed(true);
+        }
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  let body;
+  if (failed) {
+    body = (
+      <tr>
+        <td className="empty" colSpan={columns.length}>
+          The load failed.
+        </td>
+      </tr>
+    );
+  } else if (!rows || rows.length === 0) {
+    body = (
+      <tr>
+        <td className="empty" colSpan={columns.length}>
+          Nothing is loaded.
+        </td>
+      </tr>
+    );
+  } else {
+    body = rows.map((row) => (
+      <tr key={`${row.source}-${row.id}`}>
+        {columns.map(([key]) => (
+          <td key={key}>
+            {key === "id" ? (
+              <Link to={`/results?source=${encodeURIComponent(row.source)}&id=${row.id}`}>
+                {cell(row.id)}
+              </Link>
+            ) : (
+              cell(row[key])
+            )}
+          </td>
+        ))}
+      </tr>
+    ));
+  }
 
   return (
     <div className="table-scroll">
       <table className="data-table">
         <thead>
           <tr>
-            {columns.map((column) => (
-              <th key={column} scope="col">
-                {column}
+            {columns.map(([, label]) => (
+              <th key={label} scope="col">
+                {label}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
-          {experiments.length === 0 ? (
-            <tr>
-              <td className="empty" colSpan={columns.length}>
-                Nothing is loaded.
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
+        <tbody>{body}</tbody>
       </table>
     </div>
   );

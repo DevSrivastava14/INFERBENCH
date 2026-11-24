@@ -38,6 +38,7 @@ class StoredExperiment:
     resource_samples: tuple[ResourceSample, ...]
     sampling_error: str | None
     summary: AggregateSummary
+    job_status: str | None = None
 
 
 def save_experiment(
@@ -45,6 +46,7 @@ def save_experiment(
     run: BenchmarkRun,
     snapshot: ConfigurationSnapshot,
     summary: AggregateSummary | None = None,
+    job_status: str | None = None,
 ) -> int:
     """Write one experiment and return its id.
 
@@ -57,7 +59,8 @@ def save_experiment(
     ``routing_policy``, ``preferred_model``, ``fallback_count``, and
     ``retry_count`` are the snapshot's values. An omitted value is stored as
     null. A stored fallback count of 1 is stored as 1. A stored retry count
-    of 0 is stored as 0. This function does not call
+    of 0 is stored as 0. ``job_status`` is stored as given. An omitted status
+    is stored as null. This function does not call
     ``summarize``, ``ttft_ms``, or ``tpot_ms``, does not call an adapter, and
     does not sample the machine. The caller commits.
     """
@@ -98,6 +101,7 @@ def save_experiment(
         preferred_model=snapshot.preferred_model,
         fallback_count=snapshot.fallback_count,
         retry_count=snapshot.retry_count,
+        job_status=job_status,
         average_ms=stored.average_ms,
         median_ms=stored.median_ms,
         p50_ms=stored.p50_ms,
@@ -117,13 +121,138 @@ def save_experiment(
     return experiment.id
 
 
+def create_pending_job(
+    session: Session,
+    *,
+    model: str,
+    prompt: str,
+    num_predict: int | None,
+    warmup_count: int,
+    measured_count: int,
+    concurrency: int,
+    profile_name: str | None,
+    think: bool | None,
+    num_thread: int | None,
+    job_status: str,
+) -> int:
+    """Insert one job and return its id.
+
+    Engine version and hardware stay null. The retry count is 0.
+    ``job_status`` is the value the caller passes. This function does not
+    call the runner and does not call ``summarize``. The caller commits.
+    """
+
+    experiment = ExperimentRow(
+        sampling_error=None,
+        model=model,
+        prompt=prompt,
+        num_predict=num_predict,
+        warmup_count=warmup_count,
+        measured_count=measured_count,
+        concurrency=concurrency,
+        engine_name="ollama",
+        engine_version=None,
+        capture_time=None,
+        cpu_model=None,
+        logical_cpu_count=None,
+        total_ram_bytes=None,
+        python_version=None,
+        profile_name=profile_name,
+        think=think,
+        num_thread=num_thread,
+        retry_count=0,
+        job_status=job_status,
+    )
+    session.add(experiment)
+    session.flush()
+    return experiment.id
+
+
+def set_job_status(session: Session, experiment_id: int, job_status: str) -> None:
+    """Store the status the caller passes. This function does not choose it."""
+
+    experiment = session.get(ExperimentRow, experiment_id)
+    if experiment is None:
+        raise LookupError(f"no stored experiment {experiment_id}")
+    experiment.job_status = job_status
+    session.flush()
+
+
+def write_job_snapshot(
+    session: Session,
+    experiment_id: int,
+    snapshot: ConfigurationSnapshot,
+    job_status: str,
+) -> None:
+    """Copy the caller's snapshot onto an existing job and store the status."""
+
+    experiment = session.get(ExperimentRow, experiment_id)
+    if experiment is None:
+        raise LookupError(f"no stored experiment {experiment_id}")
+    _apply_snapshot(experiment, snapshot)
+    experiment.job_status = job_status
+    experiment.retry_count = 0
+    session.flush()
+
+
+def finish_job(
+    session: Session,
+    experiment_id: int,
+    run: BenchmarkRun | None,
+    snapshot: ConfigurationSnapshot | None,
+    summary: AggregateSummary | None,
+    job_status: str,
+) -> None:
+    """Store rows, samples, and aggregates for an existing job.
+
+    ``summary`` may be absent. Absent metric fields are stored as null.
+    The retry count stored here is 0. This function does not call
+    ``summarize``. The caller commits.
+    """
+
+    experiment = session.get(ExperimentRow, experiment_id)
+    if experiment is None:
+        raise LookupError(f"no stored experiment {experiment_id}")
+    if snapshot is not None:
+        _apply_snapshot(experiment, snapshot)
+    if run is not None:
+        experiment.sampling_error = run.sampling_error
+        for ordinal, record in enumerate(run.warmup + run.measured):
+            session.add(_request_row(experiment.id, ordinal, record))
+        for ordinal, sample in enumerate(run.resource_samples):
+            session.add(_sample_row(experiment.id, ordinal, sample))
+    stored = summary if summary is not None else AggregateSummary(
+        average_ms=None,
+        median_ms=None,
+        p50_ms=None,
+        p95_ms=None,
+        p99_ms=None,
+        error_rate=None,
+        generation_throughput_tps=None,
+        request_throughput_rps=None,
+    )
+    experiment.average_ms = stored.average_ms
+    experiment.median_ms = stored.median_ms
+    experiment.p50_ms = stored.p50_ms
+    experiment.p95_ms = stored.p95_ms
+    experiment.p99_ms = stored.p99_ms
+    experiment.error_rate = stored.error_rate
+    experiment.generation_throughput_tps = stored.generation_throughput_tps
+    experiment.request_throughput_rps = stored.request_throughput_rps
+    experiment.retry_count = 0
+    experiment.job_status = job_status
+    session.flush()
+
+
 def load_experiment(session: Session, experiment_id: int) -> StoredExperiment:
     """Return the stored snapshot, rows, samples, and aggregate fields.
 
     Warm-up and measured rows stay apart, in the order they were saved.
     Unset aggregate fields stay null. A column that is absent from an older
-    stored file loads as null. This function does not alter that file. It
-    does not rank percentiles and does not recompute throughput.
+    stored file loads as null. ``job_status`` stays null when that column is
+    absent. A stored status loads back as that status. This function does
+    not alter that file. It does not rank percentiles and does not recompute
+    throughput.
     """
 
     experiment = _experiment_record(session, experiment_id)
@@ -157,6 +286,7 @@ def load_experiment(session: Session, experiment_id: int) -> StoredExperiment:
             generation_throughput_tps=experiment.generation_throughput_tps,
             request_throughput_rps=experiment.request_throughput_rps,
         ),
+        job_status=experiment.job_status,
     )
 
 
@@ -231,6 +361,33 @@ def _sample_row(experiment_id: int, ordinal: int, sample: ResourceSample) -> Sam
         system_ram_total_bytes=sample.system_ram_total_bytes,
         process_rss_bytes=sample.process_rss_bytes,
     )
+
+
+def _apply_snapshot(experiment: ExperimentRow, snapshot: ConfigurationSnapshot) -> None:
+    experiment.model = snapshot.model
+    experiment.prompt = snapshot.prompt
+    experiment.num_predict = snapshot.num_predict
+    experiment.warmup_count = snapshot.warmup_count
+    experiment.measured_count = snapshot.measured_count
+    experiment.concurrency = snapshot.concurrency
+    experiment.engine_name = snapshot.engine_name
+    experiment.engine_version = snapshot.engine_version
+    experiment.capture_time = snapshot.capture_time
+    experiment.cpu_model = snapshot.cpu_model
+    experiment.logical_cpu_count = snapshot.logical_cpu_count
+    experiment.total_ram_bytes = snapshot.total_ram_bytes
+    experiment.python_version = snapshot.python_version
+    experiment.profile_name = snapshot.profile_name
+    experiment.think = snapshot.think
+    experiment.num_thread = snapshot.num_thread
+    experiment.quantization = snapshot.quantization
+    experiment.parameter_size = snapshot.parameter_size
+    experiment.model_size_bytes = snapshot.model_size_bytes
+    experiment.architecture = snapshot.architecture
+    experiment.routing_policy = snapshot.routing_policy
+    experiment.preferred_model = snapshot.preferred_model
+    experiment.fallback_count = snapshot.fallback_count
+    experiment.retry_count = snapshot.retry_count
 
 
 def _snapshot(experiment: ExperimentRow) -> ConfigurationSnapshot:

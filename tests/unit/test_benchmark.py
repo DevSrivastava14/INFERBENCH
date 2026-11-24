@@ -11,6 +11,7 @@ import contextlib
 
 import pytest
 
+from app.benchmark.records import RequestRecord
 from app.benchmark.runner import BenchmarkRunner
 from app.benchmark.workload import PROFILES
 from app.core.exceptions import ModelNotInstalledError, OllamaTimeoutError
@@ -809,6 +810,56 @@ async def test_qwen_num_thread_4_sends_think_false_and_keeps_concurrency_1() -> 
     assert adapter.num_predicts == [32, 32]
     assert adapter.num_threads == [4, 4]
     assert adapter.thinks == [False, False]
+
+
+@pytest.mark.asyncio
+async def test_progress_sink_receives_rows_and_samples_and_no_status() -> None:
+    adapter = FakeAdapter()
+    seen: list[object] = []
+
+    def sampler() -> ResourceSample:
+        return _fixture_sample(1.0)
+
+    async def sleep(_interval: float) -> None:
+        await asyncio.sleep(0)
+
+    run = await asyncio.wait_for(
+        BenchmarkRunner(adapter, clock=FakeClock()).run(
+            "gemma3:1b",
+            "Hi",
+            warmup_count=1,
+            measured_count=1,
+            sampler=sampler,
+            sample_interval=0.5,
+            sleep=sleep,
+            progress=seen.append,
+        ),
+        timeout=2,
+    )
+
+    rows = [item for item in seen if isinstance(item, RequestRecord)]
+    samples = [item for item in seen if isinstance(item, ResourceSample)]
+    assert rows == list(run.warmup + run.measured)
+    assert samples
+    assert all(isinstance(item, (RequestRecord, ResourceSample)) for item in seen)
+
+
+@pytest.mark.asyncio
+async def test_progress_sink_skips_a_call_that_never_started() -> None:
+    cancel_event = asyncio.Event()
+    cancel_event.set()
+    seen: list[object] = []
+    run = await BenchmarkRunner(FakeAdapter()).run(
+        "gemma3:1b",
+        "Hi",
+        warmup_count=0,
+        measured_count=2,
+        cancel_event=cancel_event,
+        progress=seen.append,
+    )
+
+    assert run.measured == ()
+    assert seen == []
 
 
 def test_metrics_exposes_no_sampler_or_database() -> None:

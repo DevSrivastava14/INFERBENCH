@@ -1,7 +1,8 @@
 """SQLite tables for one stored experiment.
 
 Domain records stay dataclasses. These rows hold the same fields. A request
-stores ``success`` and ``error_type``. There is no execution-state column.
+stores ``success`` and ``error_type``. The request table has no job-state
+column. ``job_status`` on the experiment is nullable.
 """
 
 from __future__ import annotations
@@ -28,12 +29,12 @@ class ExperimentRow(Base):
     measured_count: Mapped[int] = mapped_column(Integer, nullable=False)
     concurrency: Mapped[int] = mapped_column(Integer, nullable=False)
     engine_name: Mapped[str] = mapped_column(String, nullable=False)
-    engine_version: Mapped[str] = mapped_column(String, nullable=False)
-    capture_time: Mapped[float] = mapped_column(Float, nullable=False)
-    cpu_model: Mapped[str] = mapped_column(String, nullable=False)
-    logical_cpu_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    total_ram_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    python_version: Mapped[str] = mapped_column(String, nullable=False)
+    engine_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    capture_time: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cpu_model: Mapped[str | None] = mapped_column(String, nullable=True)
+    logical_cpu_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_ram_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    python_version: Mapped[str | None] = mapped_column(String, nullable=True)
     profile_name: Mapped[str | None] = mapped_column(String, nullable=True)
     think: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     num_thread: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -45,6 +46,7 @@ class ExperimentRow(Base):
     preferred_model: Mapped[str | None] = mapped_column(String, nullable=True)
     fallback_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     retry_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    job_status: Mapped[str | None] = mapped_column(String, nullable=True)
     average_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     median_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     p50_ms: Mapped[float | None] = mapped_column(Float, nullable=True)

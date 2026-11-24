@@ -1,3 +1,5 @@
 httpx
 psutil
 sqlalchemy
+fastapi
+uvicorn

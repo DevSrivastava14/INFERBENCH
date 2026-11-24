@@ -5,6 +5,8 @@ const links = [
   { to: "/benchmark", label: "Benchmark" },
   { to: "/results", label: "Results" },
   { to: "/history", label: "History" },
+  { to: "/comparisons", label: "Comparisons" },
+  { to: "/routing", label: "Routing" },
 ];
 
 export function Shell() {

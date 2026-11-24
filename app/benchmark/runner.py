@@ -13,7 +13,10 @@ module does not look up a profile catalog, and it does not choose ``think``
 from the model name. It does not choose ``num_thread`` from the model name
 or from the logical CPU count. It does not fill quantization, parameter
 size, model size, or architecture. It does not compute TTFT, TPOT,
-throughput, or percentiles, and it does not open a database.
+throughput, or percentiles, and it does not open a database. An optional
+progress sink is called with each recorded row and each sample. A call that
+never started is not a row and is not passed to the sink. The sink does not
+receive a job-state name.
 """
 
 from __future__ import annotations
@@ -65,6 +68,7 @@ class BenchmarkRunner:
         sampler: Callable[[], ResourceSample] | None = None,
         sample_interval: float = 1.0,
         sleep: Callable[[float], Awaitable[None]] | None = None,
+        progress: Callable[[RequestRecord | ResourceSample], None] | None = None,
     ) -> BenchmarkRun:
         """Run warm-up, then the measured phase, and return both row groups.
 
@@ -78,6 +82,9 @@ class BenchmarkRunner:
         and concurrency still come from the arguments above. The runner does
         not choose ``think`` from the model name, and it does not choose
         ``num_thread`` from the model name or from the logical CPU count.
+        ``progress`` is optional. When it is set, it is called with each
+        recorded row and each sample. It is not called for a stream that
+        never started. It does not receive a job-state name.
         """
         if warmup_count < 0:
             raise ValueError("warmup_count must be zero or greater")
@@ -103,7 +110,14 @@ class BenchmarkRunner:
         if sampler is not None:
             sleep_fn = asyncio.sleep if sleep is None else sleep
             sample_task = asyncio.create_task(
-                _sample_loop(sampler, sample_interval, sleep_fn, samples, sampling_errors)
+                _sample_loop(
+                    sampler,
+                    sample_interval,
+                    sleep_fn,
+                    samples,
+                    sampling_errors,
+                    progress,
+                )
             )
             await asyncio.sleep(0)
         try:
@@ -117,6 +131,7 @@ class BenchmarkRunner:
                         num_predict,
                         options,
                         record_cancellation=False,
+                        progress=progress,
                     )
                 )
             measured = await self._measured_phase(
@@ -127,6 +142,7 @@ class BenchmarkRunner:
                 measured_count,
                 concurrency,
                 cancel_event,
+                progress,
             )
         finally:
             if sample_task is not None:
@@ -153,6 +169,7 @@ class BenchmarkRunner:
         measured_count: int,
         concurrency: int,
         cancel_event: asyncio.Event | None,
+        progress: Callable[[RequestRecord | ResourceSample], None] | None,
     ) -> tuple[RequestRecord, ...]:
         """Limit in-flight measured stream calls. Do not retry."""
         semaphore = asyncio.Semaphore(concurrency)
@@ -173,7 +190,14 @@ class BenchmarkRunner:
                     semaphore.release()
                     break
                 task = asyncio.create_task(
-                    self._measured_call(model, prompt, num_predict, options, cancel_event)
+                    self._measured_call(
+                        model,
+                        prompt,
+                        num_predict,
+                        options,
+                        cancel_event,
+                        progress,
+                    )
                 )
                 task.add_done_callback(_release)
                 tasks.append(task)
@@ -210,6 +234,7 @@ class BenchmarkRunner:
         num_predict: int | None,
         options: GenerateOptions | None,
         cancel_event: asyncio.Event | None,
+        progress: Callable[[RequestRecord | ResourceSample], None] | None,
     ) -> RequestRecord | None:
         """One measured slot. A call that has not started the stream is no row."""
         if cancel_event is not None and cancel_event.is_set():
@@ -221,6 +246,7 @@ class BenchmarkRunner:
             num_predict,
             options,
             record_cancellation=True,
+            progress=progress,
         )
 
     async def _timed(
@@ -232,6 +258,7 @@ class BenchmarkRunner:
         options: GenerateOptions | None,
         *,
         record_cancellation: bool,
+        progress: Callable[[RequestRecord | ResourceSample], None] | None = None,
     ) -> RequestRecord:
         """Time one stream call. End-to-end duration is client end minus start."""
         start = self._clock()
@@ -246,44 +273,53 @@ class BenchmarkRunner:
             if not record_cancellation:
                 raise
             end = self._clock()
-            return _record(
-                phase,
-                model,
-                prompt,
-                num_predict,
-                start,
-                end,
-                success=False,
-                error_type="CancelledError",
-                metadata=None,
-                first_content_at=None,
+            return _notify(
+                progress,
+                _record(
+                    phase,
+                    model,
+                    prompt,
+                    num_predict,
+                    start,
+                    end,
+                    success=False,
+                    error_type="CancelledError",
+                    metadata=None,
+                    first_content_at=None,
+                ),
             )
         except OllamaError as exc:
             end = self._clock()
-            return _record(
+            return _notify(
+                progress,
+                _record(
+                    phase,
+                    model,
+                    prompt,
+                    num_predict,
+                    start,
+                    end,
+                    success=False,
+                    error_type=type(exc).__name__,
+                    metadata=None,
+                    first_content_at=None,
+                ),
+            )
+        end = self._clock()
+        return _notify(
+            progress,
+            _record(
                 phase,
                 model,
                 prompt,
                 num_predict,
                 start,
                 end,
-                success=False,
-                error_type=type(exc).__name__,
-                metadata=None,
-                first_content_at=None,
-            )
-        end = self._clock()
-        return _record(
-            phase,
-            model,
-            prompt,
-            num_predict,
-            start,
-            end,
-            success=True,
-            error_type=None,
-            metadata=result.metadata,
-            first_content_at=result.first_content_at,
+                success=True,
+                error_type=None,
+                metadata=result.metadata,
+                first_content_at=result.first_content_at,
+            ),
         )
 
 
@@ -293,6 +329,7 @@ async def _sample_loop(
     sleep: Callable[[float], Awaitable[None]],
     samples: list[ResourceSample],
     sampling_errors: list[str],
+    progress: Callable[[RequestRecord | ResourceSample], None] | None,
 ) -> None:
     """Sample, sleep, and repeat until this task is cancelled.
 
@@ -308,10 +345,23 @@ async def _sample_loop(
             sampling_errors.append(type(exc).__name__)
             return
         samples.append(sample)
+        if progress is not None:
+            progress(sample)
         try:
             await sleep(interval)
         except asyncio.CancelledError:
             return
+
+
+def _notify(
+    progress: Callable[[RequestRecord | ResourceSample], None] | None,
+    record: RequestRecord,
+) -> RequestRecord:
+    """Hand one recorded row to the sink. A missing sink changes nothing."""
+
+    if progress is not None:
+        progress(record)
+    return record
 
 
 def _record(
