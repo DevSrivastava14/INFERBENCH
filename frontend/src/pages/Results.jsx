@@ -1,23 +1,12 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SeriesChart } from "../components/SeriesChart.jsx";
+import { ledes, resultMetrics } from "../copy.js";
 import { loadExperiment } from "../services/experiments.js";
 
-const metrics = [
-  ["TTFT", "ttft_ms"],
-  ["TPOT", "tpot_ms"],
-  ["end-to-end latency", "average_ms"],
-  ["generation throughput", "generation_throughput_tps"],
-  ["request throughput", "request_throughput_rps"],
-  ["P50", "p50_ms"],
-  ["P95", "p95_ms"],
-  ["P99", "p99_ms"],
-  ["error rate", "error_rate"],
-];
-
 function metricValue(summary, key) {
-  if (!summary || summary[key] === null || summary[key] === undefined) {
-    return "";
+  if (!summary || summary[key] === null || summary[key] === undefined || summary[key] === "") {
+    return "unset";
   }
   return String(summary[key]);
 }
@@ -61,11 +50,13 @@ export function Results() {
 
   return (
     <>
+      <p className="lede">{ledes.results}</p>
       <ul className="metric-list">
-        {metrics.map(([name, key]) => (
+        {resultMetrics.map(([name, key, sentence]) => (
           <li key={name}>
             <span>{name}</span>
-            {experiment ? <span> {metricValue(experiment.summary, key)}</span> : null}
+            <span className="caption">{sentence}</span>
+            <span> {metricValue(experiment ? experiment.summary : null, key)}</span>
           </li>
         ))}
       </ul>

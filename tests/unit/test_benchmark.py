@@ -555,6 +555,28 @@ async def test_run_without_sampler_records_no_samples() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_sample_interval_of_zero_is_rejected() -> None:
+    adapter = FakeAdapter()
+
+    def sampler() -> ResourceSample:
+        return _fixture_sample(1.0)
+
+    with pytest.raises(ValueError, match="sample_interval"):
+        await _runner(adapter).run(
+            "gemma3:1b",
+            "Hi",
+            warmup_count=1,
+            measured_count=1,
+            sampler=sampler,
+            sample_interval=0,
+        )
+
+    assert adapter.show_calls == 0
+    assert adapter.stream_calls == 0
+
+
+@pytest.mark.asyncio
 async def test_missing_model_takes_no_sample() -> None:
     adapter = FakeAdapter(missing=True)
     taken: list[ResourceSample] = []

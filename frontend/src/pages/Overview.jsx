@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ledes, overviewRegions } from "../copy.js";
 import { loadOverview } from "../services/experiments.js";
 
 const regions = [
@@ -42,11 +43,13 @@ export function Overview() {
   if (failed) {
     return (
       <>
+        <p className="lede">{ledes.overview}</p>
         <p className="empty">The load failed.</p>
         <div className="region-list">
           {regions.map((name) => (
             <section className="region" key={name}>
               <h2>{name}</h2>
+              <p className="caption">{overviewRegions[name]}</p>
             </section>
           ))}
         </div>
@@ -55,14 +58,18 @@ export function Overview() {
   }
 
   return (
-    <div className="region-list">
-      {regions.map((name) => (
-        <section className="region" key={name}>
-          <h2>{name}</h2>
-          <Region payload={payload} name={name} />
-        </section>
-      ))}
-    </div>
+    <>
+      <p className="lede">{ledes.overview}</p>
+      <div className="region-list">
+        {regions.map((name) => (
+          <section className="region" key={name}>
+            <h2>{name}</h2>
+            <p className="caption">{overviewRegions[name]}</p>
+            <Region payload={payload} name={name} />
+          </section>
+        ))}
+      </div>
+    </>
   );
 }
 

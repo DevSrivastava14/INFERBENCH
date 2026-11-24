@@ -17,7 +17,13 @@ test("a failed load does not invent a sample or a model list", async () => {
   vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("down"))));
   render(<Overview />);
 
-  expect(await screen.findByText("The load failed.")).toBeTruthy();
+  expect(
+    await screen.findByText(
+      "This page shows the engines, models, hardware, recent experiments, and the current CPU and RAM sample the API returned.",
+    ),
+  ).toBeTruthy();
+  expect(screen.getByText("The load failed.")).toBeTruthy();
+  expect(screen.getByText(/A failed load leaves this empty/)).toBeTruthy();
   expect(screen.queryByText("Nothing is loaded.")).toBeNull();
   const text = document.body.textContent;
   expect(text).not.toContain("gemma3:1b");

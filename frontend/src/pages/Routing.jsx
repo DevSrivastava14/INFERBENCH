@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ledes, routingFields, routingPolicies } from "../copy.js";
 import { routeCall, routeRequestBody } from "../services/experiments.js";
 
 const policies = [
@@ -72,9 +73,9 @@ export function Routing() {
 
   return (
     <>
+      <p className="lede">{ledes.routing}</p>
       <form className="form" onSubmit={onSubmit}>
-        <label>
-          <span className="field-name">policy</span>
+        <Field name="policy" sentence={routingFields.policy}>
           <select value={policy} onChange={(event) => setPolicy(event.target.value)}>
             {policies.map((name) => (
               <option key={name} value={name}>
@@ -82,103 +83,93 @@ export function Routing() {
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          <span className="field-name">profile name</span>
+        </Field>
+        {policies.map((name) => (
+          <p className="caption" key={name}>
+            {routingPolicies[name]}
+          </p>
+        ))}
+        <Field name="profile name" sentence={routingFields["profile name"]}>
           <input
             value={profileName}
             onChange={(event) => setProfileName(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">static model</span>
+        </Field>
+        <Field name="static model" sentence={routingFields["static model"]}>
           <input
             value={staticModel}
             onChange={(event) => setStaticModel(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">unavailable</span>
+        </Field>
+        <Field name="unavailable" sentence={routingFields.unavailable}>
           <input
             value={unavailable}
             onChange={(event) => setUnavailable(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">catalog model</span>
+        </Field>
+        <Field name="catalog model" sentence={routingFields["catalog model"]}>
           <input
             value={catalogModel}
             onChange={(event) => setCatalogModel(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">capabilities</span>
+        </Field>
+        <Field name="capabilities" sentence={routingFields.capabilities}>
           <input
             value={capabilities}
             onChange={(event) => setCapabilities(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">model_size_bytes</span>
+        </Field>
+        <Field name="model_size_bytes" sentence={routingFields.model_size_bytes}>
           <input
             value={modelSizeBytes}
             onChange={(event) => setModelSizeBytes(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">stored average_ms</span>
+        </Field>
+        <Field name="stored average_ms" sentence={routingFields["stored average_ms"]}>
           <input
             value={averageMs}
             onChange={(event) => setAverageMs(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">stored median_ms</span>
+        </Field>
+        <Field name="stored median_ms" sentence={routingFields["stored median_ms"]}>
           <input
             value={medianMs}
             onChange={(event) => setMedianMs(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">stored p50_ms</span>
+        </Field>
+        <Field name="stored p50_ms" sentence={routingFields["stored p50_ms"]}>
           <input value={p50Ms} onChange={(event) => setP50Ms(event.target.value)} />
-        </label>
-        <label>
-          <span className="field-name">stored p95_ms</span>
+        </Field>
+        <Field name="stored p95_ms" sentence={routingFields["stored p95_ms"]}>
           <input value={p95Ms} onChange={(event) => setP95Ms(event.target.value)} />
-        </label>
-        <label>
-          <span className="field-name">stored p99_ms</span>
+        </Field>
+        <Field name="stored p99_ms" sentence={routingFields["stored p99_ms"]}>
           <input value={p99Ms} onChange={(event) => setP99Ms(event.target.value)} />
-        </label>
-        <label>
-          <span className="field-name">required capabilities</span>
+        </Field>
+        <Field name="required capabilities" sentence={routingFields["required capabilities"]}>
           <input
             value={requiredCapabilities}
             onChange={(event) => setRequiredCapabilities(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">max_model_size_bytes</span>
+        </Field>
+        <Field name="max_model_size_bytes" sentence={routingFields.max_model_size_bytes}>
           <input
             value={maxModelSizeBytes}
             onChange={(event) => setMaxModelSizeBytes(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">latency budget metric</span>
+        </Field>
+        <Field name="latency budget metric" sentence={routingFields["latency budget metric"]}>
           <input
             value={budgetMetric}
             onChange={(event) => setBudgetMetric(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">latency budget maximum</span>
+        </Field>
+        <Field name="latency budget maximum" sentence={routingFields["latency budget maximum"]}>
           <input
             value={budgetMaximum}
             onChange={(event) => setBudgetMaximum(event.target.value)}
           />
-        </label>
+        </Field>
         <button type="submit">Route</button>
       </form>
       {failed ? <p className="empty">The load failed.</p> : null}
@@ -207,5 +198,17 @@ export function Routing() {
         </div>
       ) : null}
     </>
+  );
+}
+
+function Field({ name, sentence, children }) {
+  return (
+    <div>
+      <label>
+        <span className="field-name">{name}</span>
+        {children}
+      </label>
+      <p className="caption">{sentence}</p>
+    </div>
   );
 }

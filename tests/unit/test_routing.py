@@ -475,6 +475,15 @@ def test_may_fallback_is_false_for_a_cancelled_row() -> None:
     assert may_fallback((failed, cancelled)) is False
 
 
+def test_may_fallback_is_false_when_a_success_follows_a_failure() -> None:
+    rows = (
+        _measured_row(success=False, error_type="OllamaTimeoutError"),
+        _measured_row(success=True, error_type=None),
+    )
+
+    assert may_fallback(rows) is False
+
+
 def test_may_fallback_is_true_when_every_measured_row_failed() -> None:
     rows = (
         _measured_row(success=False, error_type="OllamaTimeoutError"),

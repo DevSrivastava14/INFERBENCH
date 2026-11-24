@@ -8,6 +8,8 @@ Day 14 adds `frontend/` as the reader of measurements it is given. The dashboard
 
 Day 15 adds `app/main.py` and `app/api/` as the caller that opens SQLite, calls `summarize`, and starts the runner. FastAPI owns the connection. Job status is the API's column. The five names `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, and `CANCELLED` are that column. Request rows stay `success` and `error_type`. The runner does not set those five names. The dashboard reads the API. It still does not calculate TTFT, TPOT, percentiles, throughput, or error rate, and it still does not call Ollama, `psutil`, or SQLite. Comparisons and Routing join the shell. `job_status` is nullable. Load leaves it null when the column is absent and does not alter the file.
 
+Day 16 locks failure cases with fakes. It adds no procedure step, does not rerun step 12, and does not repeat an experiment for variance. The text does not name a winner. Step 9 still waits. The tests do not call Ollama. A database error returns no invented summary and no invented latency. `OllamaTimeoutError` on one call is one request row, and the job can still finish `COMPLETED`. The other measured calls are still stored. `MalformedResponseError` on one call is one request row, and the job can still finish `COMPLETED`. A missing model, and any other raised `run`, is `FAILED` and does not call `generate_stream`. The latency, throughput, percentile, and error-rate formulas stay as Day 6 wrote them. A job state is not a latency. The dashboard copy is not a new formula.
+
 ```text
 React dashboard
       |
@@ -36,7 +38,7 @@ Local models, CPU and RAM monitoring, SQLite
 
 **Monitoring.** Owns CPU and RAM samples and hardware identity. CPU percent is system-wide. System RAM is the whole machine. Process RAM is the resident set of the benchmark process. It does not time tokens and it does not compute a latency.
 
-**API.** `app/main.py` and `app/api/` are the caller. FastAPI opens SQLite, calls `summarize`, and starts the runner. FastAPI owns the connection. Job status is the API's column. Request rows stay `success` and `error_type`. The runner does not set `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, or `CANCELLED`.
+**API.** `app/main.py` and `app/api/` are the caller. FastAPI opens SQLite, calls `summarize`, and starts the runner. FastAPI owns the connection. Job status is the API's column. Request rows stay `success` and `error_type`. The runner does not set `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, or `CANCELLED`. A database error returns no invented summary and no invented latency.
 
 **Dashboard.** `frontend/` reads the API. It does not calculate TTFT, TPOT, percentiles, throughput, or error rate. It does not call Ollama, does not call `psutil`, does not open SQLite, and does not call `summarize`. The pages are Overview, Benchmark configuration, Results, Experiment history, Comparisons, and Routing. A chart draws a series it is given. A chart is not a new latency formula. Selection is not a percentile.
 

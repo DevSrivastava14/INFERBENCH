@@ -39,8 +39,18 @@ test("renders column headers and an empty body", async () => {
     "num_thread",
     "job status",
   ]) {
-    expect(await screen.findByRole("columnheader", { name })).toBeTruthy();
+    expect(
+      await screen.findByRole("columnheader", {
+        name: (value) => value.startsWith(name),
+      }),
+    ).toBeTruthy();
   }
+  expect(
+    screen.getByText("The output cap stored on the snapshot, not the tokens the model emitted."),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("How many warm-up calls were configured. Warm-up stays out of the measured set."),
+  ).toBeTruthy();
 
   expect(screen.getByText("Nothing is loaded.")).toBeTruthy();
   expect(document.body.textContent).not.toContain("gemma3:1b");

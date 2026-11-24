@@ -374,6 +374,25 @@ async def test_engine_version_rejects_a_body_without_a_version_string() -> None:
         await _adapter(handler).engine_version()
 
 
+@pytest.mark.asyncio
+async def test_engine_version_rejects_a_non_json_body() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        assert _request.url.path == "/api/version"
+        return httpx.Response(200, content=b"not-json")
+
+    with pytest.raises(MalformedResponseError):
+        await _adapter(handler).engine_version()
+
+
+@pytest.mark.asyncio
+async def test_engine_version_records_a_connection_failure() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused")
+
+    with pytest.raises(OllamaUnavailableError):
+        await _adapter(handler).engine_version()
+
+
 def test_adapter_exposes_no_percentile_ttft_or_tpot_helper() -> None:
     banned = ("percentile", "ttft", "tpot", "throughput")
     names = [name.lower() for name in dir(OllamaAdapter)]

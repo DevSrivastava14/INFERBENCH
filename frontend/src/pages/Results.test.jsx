@@ -37,6 +37,13 @@ test("lists metric names and does not draw a series", () => {
   for (const name of metricNames) {
     expect(screen.getByText(name)).toBeTruthy();
   }
+  expect(
+    screen.getByText(
+      "Time from the request start until the first generated content arrives. Unit: milliseconds.",
+    ),
+  ).toBeTruthy();
+  expect(screen.getByText(/A blank value is unset/)).toBeTruthy();
+  expect(screen.getAllByText("unset").length).toBeGreaterThan(0);
   expect(screen.getByText("No experiment is selected.")).toBeTruthy();
   expect(screen.queryByText("100")).toBeNull();
   expect(screen.queryByText("110")).toBeNull();

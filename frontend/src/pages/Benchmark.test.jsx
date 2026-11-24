@@ -43,6 +43,19 @@ test("keeps runner fields in local state and does not fetch", () => {
   expect(
     screen.getByText("Streaming is the benchmark path the runner already uses."),
   ).toBeTruthy();
+  expect(
+    screen.getByText("A cap on output tokens, not the number of tokens the model emitted."),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Warm-up calls are stored and stay out of the measured set."),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Run starts one job and returns before the model finishes."),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Cancel stops new calls and cancels calls already in flight."),
+  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
   expect(document.body.textContent).not.toContain("num_ctx");
   expect(document.body.textContent).not.toContain("gemma3:1b");
   expect(document.body.textContent).not.toContain("qwen3.5:2b");

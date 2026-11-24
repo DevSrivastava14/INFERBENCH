@@ -47,6 +47,23 @@ def test_eval_count_below_two_leaves_tpot_unset() -> None:
     assert tpot_ms(row) is None
 
 
+def test_successful_row_with_no_stamp_leaves_ttft_unset() -> None:
+    row = _row(first_content_at=None)
+
+    assert row.success is True
+    assert ttft_ms(row) is None
+    assert decode_duration_ms(row) is None
+    assert tpot_ms(row) is None
+
+
+def test_missing_eval_count_leaves_tpot_unset() -> None:
+    row = _row(eval_count=None)
+
+    assert ttft_ms(row) == 800
+    assert decode_duration_ms(row) == 2200
+    assert tpot_ms(row) is None
+
+
 def test_failed_row_leaves_ttft_decode_and_tpot_unset() -> None:
     row = _row(success=False, error_type="OllamaTimeoutError")
 

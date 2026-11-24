@@ -132,6 +132,22 @@ def test_cancelled_row_returns_error_rate_0() -> None:
     assert average_ms(run) == 100
 
 
+def test_only_adapter_failures_leave_the_five_latency_fields_unset() -> None:
+    run = BenchmarkRun(
+        warmup=(),
+        measured=(
+            _row(success=False, error_type="OllamaTimeoutError", end_to_end_ms=100),
+            _row(success=False, error_type="MalformedResponseError", end_to_end_ms=200),
+        ),
+    )
+
+    assert average_ms(run) is None
+    assert median_ms(run) is None
+    assert percentile_ms(run, 50) is None
+    assert percentile_ms(run, 95) is None
+    assert percentile_ms(run, 99) is None
+
+
 def test_empty_measured_set_leaves_error_rate_unset() -> None:
     run = BenchmarkRun(
         warmup=(_row(phase="warmup", end_to_end_ms=9000),),

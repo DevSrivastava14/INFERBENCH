@@ -711,4 +711,77 @@ Notes that are not open problems: the routing form posts one catalog row, so a s
 
 Day 16: testing and failure injection. Do not treat a dashboard payload, the fixture series 100, 110, and 120, a stored fallback count of 0, or a figure in an existing findings file as a new benchmark result. Thinking on versus off, concurrency 8, `num_ctx`, a same-model quantization run, CSV and JSON export, and procedure step 9 stay later.
 
+## 2026-11-24 — Day 16: Testing and Failure Injection, and an explanatory dashboard
+
+### Five-line summary
+
+Day 16 locks the failure cases the suite did not assert, and makes the dashboard say what each clock and control means. Nothing from earlier days failed, so there is no fix-first work. The new tests use fakes and do not contact Ollama, and a timeout row can still sit inside a completed job. The type, the rail, and the label sentences make a demo understandable without naming a winner or painting a fixture latency. After that review, the site opens on one purpose sentence and then replaces itself with the existing dashboard.
+
+### Completed
+
+- A database error returns HTTP 500 `{"detail": "database error"}` and invents no summary and no latency. A timeout or a malformed response on one call is one request row, and the job can still finish `COMPLETED`. A missing model, and any other raised run, is `FAILED` and does not call `generate_stream`.
+- Added the remaining failure cases with a fake adapter, a fake clock, and a temporary database. A mixed run reloads the failed row and the successful rows, and load does not recompute the summary. A successful row with no first-content stamp leaves TTFT unset. A missing `eval_count` leaves TPOT unset. A cancelled row still sets the request-throughput window. Adapter failures alone leave the five latency fields unset. Generation throughput stays unset when no measured row qualifies. A stored `sampling_error` loads back as that error. `sample_interval` of 0 is rejected. `may_fallback` is false when a success follows a failure. `engine_version` rejects a non-JSON body and records a connection failure. The formulas stay as Day 6 wrote them. `docs/metrics.md` was not edited.
+- Added `tests/integration/`. One test holds the fake stream, sees `RUNNING`, then `COMPLETED`, and the reloaded aggregates match the job. A second ends `CANCELLED`. A third uses a missing model and never calls `generate_stream`. The client uses the app in-process. It does not start a live server and does not contact Ollama.
+- The shell uses IBM Plex Sans and IBM Plex Mono, a dark rail, one accent, and a type scale for the product name, page title, lede, section title, body, caption, and metric value. Each page has a lede. Benchmark fields, history columns, the nine result metrics, and the four routing policies keep their technical names and gain one sentence. Those sentences do not contain better, worse, improved, winner, recommend, or best. `think` true is still not offered.
+- The site root now states "An engineering platform for measuring local LLM inference performance." and then opens Overview. The name InferBench under that sentence links to the same dashboard. Overview moved to `/overview`.
+- The live check flagged long hardware lines spilling their columns, two Routing captions with one word on the last line, and a warm paper background on every page. The metric grid now wraps those lines, captions and ledes use a wrap that keeps the last word with the line above, and the content surface is a light green-gray taken from the rail. A fresh check of the six dashboard routes, at a desktop width and a phone width, came back clear.
+- Installed the design hook and recorded code-first for landing pages and showcase surfaces. The doctor report is clear.
+
+### Files changed
+
+- `app/main.py` (updated)
+- `docs/architecture.md` (updated)
+- `docs/methodology.md` (updated)
+- `tests/unit/test_api.py` (updated)
+- `tests/unit/test_benchmark.py` (updated)
+- `tests/unit/test_database.py` (updated)
+- `tests/unit/test_latency.py` (updated)
+- `tests/unit/test_ollama.py` (updated)
+- `tests/unit/test_routing.py` (updated)
+- `tests/unit/test_statistics.py` (updated)
+- `tests/unit/test_throughput.py` (updated)
+- `tests/integration/test_job_path.py` (added)
+- `frontend/src/copy.js` (added)
+- `frontend/src/App.jsx` (updated)
+- `frontend/src/layout/Shell.jsx` (updated)
+- `frontend/src/services/experiments.js` (updated)
+- `frontend/src/styles/tokens.css` (updated)
+- `frontend/src/styles/layout.css` (updated)
+- `frontend/src/styles/landing.css` (added)
+- `frontend/src/pages/Landing.jsx` (added)
+- `frontend/src/pages/Landing.test.jsx` (added)
+- `frontend/src/pages/Overview.jsx` (updated)
+- `frontend/src/pages/Overview.test.jsx` (updated)
+- `frontend/src/pages/Benchmark.jsx` (updated)
+- `frontend/src/pages/Benchmark.test.jsx` (updated)
+- `frontend/src/pages/Results.jsx` (updated)
+- `frontend/src/pages/Results.test.jsx` (updated)
+- `frontend/src/pages/History.jsx` (updated)
+- `frontend/src/pages/History.test.jsx` (updated)
+- `frontend/src/pages/Comparisons.jsx` (updated)
+- `frontend/src/pages/Comparisons.test.jsx` (updated)
+- `frontend/src/pages/Routing.jsx` (updated)
+- `frontend/src/pages/Routing.test.jsx` (updated)
+- `PRODUCT.md` (added)
+
+### Test results
+
+`python -m pytest`: 167 passed in 4.03s. Seventeen tests are new: three API cases, two latency, two throughput, one statistics, two database, one benchmark, one routing, two Ollama, and three integration. The earlier 150 still pass. The run uses fakes and a temporary database. It does not contact Ollama. No test asserts a latency number from a live server. Pytest does not read a findings file for an expected timing.
+
+`npm test`: 20 passed. One test is new: the landing sentence, then Overview. The chart test sees 100, 110, and 120. The Results page render with no selected experiment does not include that series, and it includes the TTFT definition. Overview, history, the configuration form, Comparisons, and Routing render from mocked `fetch` payloads. A mocked overview failure shows the load-failed sentence and no invented CPU sample or model list. Frontend tests do not read a findings file.
+
+`npm run build` succeeded. The CSS is 11.28 kB. The script chunk is 704.04 kB because Recharts is included. The build exits 0.
+
+### Problems
+
+None left open.
+
+The first collection of `tests/integration/test_job_path.py` raised `NameError: pytest is not defined` on the asyncio marker. The module imported `pytest`, and the three tests passed. A PowerShell `&&` between `npm test` and `npm run build` was not a valid separator, so the two commands were run in sequence. Both succeeded. The first landing test advanced fake timers outside `act`, so the route never left the purpose sentence. Wrapping the advance in `act` made the test see Overview.
+
+Notes that are not open problems: the five job-status colors are in the stylesheet, and no element sets them yet. The shell has a lede slot, and the pages render their own ledes. No frontend test clicks Cancel. `engine_version` has a connection-failure test and no separate timeout test. The percentile formula cell still says "P50 is the middle." `LEARN.md` and `docs/day1-check.md` were already modified in the working tree. They were not edited today. Day 2 through Day 15 notes were left as notes.
+
+### Next steps
+
+Day 17: Docker, CI, and reproducibility. Do not treat a dashboard payload, the fixture series 100, 110, and 120, a stored fallback count of 0, or a figure in an existing findings file as a new benchmark result. Thinking on versus off, concurrency 8, `num_ctx`, a same-model quantization run, CSV and JSON export, and procedure step 9 stay later.
+
 

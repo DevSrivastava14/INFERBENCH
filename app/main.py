@@ -7,11 +7,14 @@ leaves the four result files read-only.
 
 from __future__ import annotations
 
+import sqlite3
 import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes import router
 from app.api.service import BenchmarkService
@@ -34,6 +37,8 @@ def create_app(
     """Build the API around the adapter, the database path, and the probes."""
 
     app = FastAPI()
+    app.add_exception_handler(SQLAlchemyError, _database_error)
+    app.add_exception_handler(sqlite3.Error, _database_error)
     app.state.service = BenchmarkService(
         adapter=adapter,
         dashboard_path=dashboard_path,
@@ -44,6 +49,15 @@ def create_app(
     )
     app.include_router(router)
     return app
+
+
+def _database_error(_request: Request, _exc: Exception) -> JSONResponse:
+    """Return an error with no summary and no latency.
+
+    A failed read or write does not fill in an aggregate or a clock.
+    """
+
+    return JSONResponse(status_code=500, content={"detail": "database error"})
 
 
 def create_production_app() -> FastAPI:

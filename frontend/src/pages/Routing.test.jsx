@@ -31,6 +31,24 @@ test("starts empty and does not fetch", () => {
   expect(screen.getByRole("option", { name: "availability_aware" })).toBeTruthy();
   expect(screen.getByLabelText("stored p95_ms")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Route" })).toBeTruthy();
+  expect(
+    screen.getByText("Static returns the configured model and keeps that name when a constraint fails."),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      "Workload-aware selection is the lowest stored P95 for the requested profile among models that pass the capability and size filters.",
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      "Latency-constrained adds the caller's latency budget as a further filter, then uses that same P95 rank.",
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      "Availability-aware uses that P95 rank, then selects the next eligible model when the preferred model is unavailable.",
+    ),
+  ).toBeTruthy();
   expect(screen.getByText("Nothing is loaded.")).toBeTruthy();
   expect(document.body.textContent).not.toMatch(forbidden);
   expect(fetchSpy).not.toHaveBeenCalled();

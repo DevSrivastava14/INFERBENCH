@@ -17,7 +17,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
 from app.benchmark.records import BenchmarkRun
-from app.core.exceptions import ModelNotInstalledError, OllamaTimeoutError, OllamaUnavailableError
+from app.core.exceptions import (
+    MalformedResponseError,
+    ModelNotInstalledError,
+    OllamaTimeoutError,
+    OllamaUnavailableError,
+)
 from app.database.models import Base
 from app.database.repository import load_experiment, save_experiment
 from app.inference.base import (
@@ -48,6 +53,7 @@ class FakeAdapter(InferenceAdapter):
         self.show_error: Exception | None = None
         self.stream_error: Exception | None = None
         self.fail_after = 0
+        self.fail_on: int | None = None
 
     async def engine_version(self) -> str:
         if self.version_error is not None:
@@ -91,7 +97,10 @@ class FakeAdapter(InferenceAdapter):
         self.started.set()
         if self.hold:
             await self.release.wait()
-        if self.stream_error is not None and self.stream_calls > self.fail_after:
+        if self.stream_error is not None and self.fail_on is not None:
+            if self.stream_calls == self.fail_on:
+                raise self.stream_error
+        elif self.stream_error is not None and self.stream_calls > self.fail_after:
             raise self.stream_error
         return StreamGenerateResult(
             text="ok",
@@ -348,6 +357,80 @@ async def test_request_error_still_completes(tmp_path: Path) -> None:
     engine.dispose()
     assert loaded.measured[0].error_type == "OllamaTimeoutError"
     assert loaded.job_status == "COMPLETED"
+
+
+@pytest.mark.asyncio
+async def test_database_error_returns_no_invented_summary(tmp_path: Path) -> None:
+    adapter = FakeAdapter()
+    app, dashboard = _build(tmp_path, adapter)
+    dashboard.write_bytes(b"not a sqlite database")
+    async with _client(app) as client:
+        response = await client.get("/api/experiments/dashboard/1")
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "database error"}
+    text = response.text
+    for word in ("summary", "average_ms", "p50_ms", "p95_ms", "p99_ms", "ttft", "tpot"):
+        assert word not in text
+
+
+@pytest.mark.asyncio
+async def test_timeout_on_one_call_completes_and_stores_the_other_rows(tmp_path: Path) -> None:
+    adapter = FakeAdapter()
+    adapter.stream_error = OllamaTimeoutError("timed out")
+    adapter.fail_on = 2
+    app, dashboard = _build(tmp_path, adapter)
+    async with _client(app) as client:
+        posted = await client.post(
+            "/api/jobs",
+            json={
+                "model": "gemma3:1b",
+                "prompt": "Hi",
+                "warmup_count": 0,
+                "measured_count": 3,
+            },
+        )
+        finished = await _wait_status(client, posted.json()["id"], "COMPLETED")
+
+    assert finished["job_status"] == "COMPLETED"
+    assert finished["failed_count"] == 1
+    assert finished["succeeded_count"] == 2
+    engine = create_engine("sqlite:///" + dashboard.resolve().as_posix(), poolclass=NullPool)
+    with Session(engine) as session:
+        loaded = load_experiment(session, posted.json()["id"])
+    engine.dispose()
+    assert len(loaded.measured) == 3
+    assert [row.error_type for row in loaded.measured].count("OllamaTimeoutError") == 1
+    assert sum(1 for row in loaded.measured if row.success) == 2
+
+
+@pytest.mark.asyncio
+async def test_malformed_response_on_one_call_still_completes(tmp_path: Path) -> None:
+    adapter = FakeAdapter()
+    adapter.stream_error = MalformedResponseError("not json")
+    adapter.fail_on = 1
+    app, dashboard = _build(tmp_path, adapter)
+    async with _client(app) as client:
+        posted = await client.post(
+            "/api/jobs",
+            json={
+                "model": "gemma3:1b",
+                "prompt": "Hi",
+                "warmup_count": 0,
+                "measured_count": 2,
+            },
+        )
+        finished = await _wait_status(client, posted.json()["id"], "COMPLETED")
+
+    assert finished["job_status"] == "COMPLETED"
+    engine = create_engine("sqlite:///" + dashboard.resolve().as_posix(), poolclass=NullPool)
+    with Session(engine) as session:
+        loaded = load_experiment(session, posted.json()["id"])
+    engine.dispose()
+    assert len(loaded.measured) == 2
+    assert loaded.measured[0].error_type == "MalformedResponseError"
+    assert loaded.measured[0].success is False
+    assert loaded.measured[1].success is True
 
 
 @pytest.mark.asyncio

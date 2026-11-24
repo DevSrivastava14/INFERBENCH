@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { historyCaptions, ledes } from "../copy.js";
 import { loadExperiments } from "../services/experiments.js";
 
 const columns = [
@@ -89,19 +90,23 @@ export function History() {
   }
 
   return (
-    <div className="table-scroll">
-      <table className="data-table">
-        <thead>
-          <tr>
-            {columns.map(([, label]) => (
-              <th key={label} scope="col">
-                {label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>{body}</tbody>
-      </table>
-    </div>
+    <>
+      <p className="lede">{ledes.history}</p>
+      <div className="table-scroll">
+        <table className="data-table">
+          <thead>
+            <tr>
+              {columns.map(([, label]) => (
+                <th key={label} scope="col">
+                  <span className="field-name">{label}</span>
+                  <span className="caption">{historyCaptions[label]}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>{body}</tbody>
+        </table>
+      </div>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { comparisonFields, ledes } from "../copy.js";
 import { compareExperiments, compareRequestBody } from "../services/experiments.js";
 
 const deltas = [
@@ -52,35 +53,32 @@ export function Comparisons() {
 
   return (
     <>
+      <p className="lede">{ledes.comparisons}</p>
       <form className="form" onSubmit={onSubmit}>
-        <label>
-          <span className="field-name">baseline source</span>
+        <Field name="baseline source" sentence={comparisonFields["baseline source"]}>
           <input
             value={baselineSource}
             onChange={(event) => setBaselineSource(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">baseline id</span>
+        </Field>
+        <Field name="baseline id" sentence={comparisonFields["baseline id"]}>
           <input
             value={baselineId}
             onChange={(event) => setBaselineId(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">candidate source</span>
+        </Field>
+        <Field name="candidate source" sentence={comparisonFields["candidate source"]}>
           <input
             value={candidateSource}
             onChange={(event) => setCandidateSource(event.target.value)}
           />
-        </label>
-        <label>
-          <span className="field-name">candidate id</span>
+        </Field>
+        <Field name="candidate id" sentence={comparisonFields["candidate id"]}>
           <input
             value={candidateId}
             onChange={(event) => setCandidateId(event.target.value)}
           />
-        </label>
+        </Field>
         <button type="submit">Compare</button>
       </form>
       {failed ? <p className="empty">The load failed.</p> : null}
@@ -135,5 +133,17 @@ export function Comparisons() {
         </div>
       ) : null}
     </>
+  );
+}
+
+function Field({ name, sentence, children }) {
+  return (
+    <div>
+      <label>
+        <span className="field-name">{name}</span>
+        {children}
+      </label>
+      <p className="caption">{sentence}</p>
+    </div>
   );
 }

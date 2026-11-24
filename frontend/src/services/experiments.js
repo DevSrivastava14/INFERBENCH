@@ -31,6 +31,10 @@ export function loadJob(id) {
   return fetch(`/api/jobs/${encodeURIComponent(id)}`).then(readJson);
 }
 
+export function cancelJob(id) {
+  return fetch(`/api/jobs/${encodeURIComponent(id)}/cancel`, { method: "POST" }).then(readJson);
+}
+
 export function compareExperiments(body) {
   return fetch("/api/compare", {
     method: "POST",

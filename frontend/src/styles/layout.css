@@ -7,31 +7,41 @@
 }
 
 .rail {
-  padding: 1.25rem 0.9rem;
-  border-right: 1px solid var(--line);
-  background: var(--paper);
+  padding: 1.5rem 1rem;
+  background: var(--rail);
+  color: var(--rail-ink);
+  border-right: 1px solid var(--rail-line);
 }
 
-.rail-name {
-  margin: 0 0 1.4rem;
+.product-name {
+  margin: 0 0 1.6rem;
   padding: 0 0.55rem;
-  font-size: 0.95rem;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: var(--type-product);
   font-weight: 500;
+  line-height: 1.2;
   letter-spacing: 0.01em;
 }
 
 .rail nav {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.15rem;
 }
 
 .rail a {
-  display: block;
-  padding: 0.38rem 0.55rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.55rem;
   border-left: 2px solid transparent;
-  color: var(--ink);
+  color: var(--rail-ink);
+  font-size: var(--type-body);
   text-decoration: none;
+}
+
+.rail a svg {
+  flex: none;
 }
 
 .rail a[aria-current="page"] {
@@ -41,70 +51,104 @@
 
 .content {
   min-width: 0;
-  padding: 1.5rem 1.75rem 2.5rem;
+  padding: 1.75rem 2rem 2.75rem;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.page-head {
+  max-width: 42rem;
+  margin-bottom: 1.5rem;
 }
 
 .page-title {
-  margin: 0 0 1.25rem;
-  font-size: 1.2rem;
+  margin: 0;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: var(--type-page-title);
   font-weight: 500;
+  line-height: 1.15;
 }
 
-.empty {
-  margin: 0;
-  max-width: 36rem;
+.lede {
+  margin: 0.55rem 0 0;
+  max-width: 40rem;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: var(--type-lede);
+  font-weight: 400;
+  line-height: 1.45;
   color: var(--ink-quiet);
+  text-wrap: pretty;
+}
+
+.lede:empty {
+  display: none;
 }
 
 .region-list {
   display: grid;
-  gap: 1rem;
+  gap: 1.15rem;
 }
 
 .region {
-  padding-top: 0.85rem;
+  padding-top: 0.95rem;
   border-top: 1px solid var(--line);
 }
 
-.region h2 {
-  margin: 0 0 0.35rem;
-  font-size: 0.82rem;
+.region h2,
+.section-title {
+  margin: 0 0 0.4rem;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: var(--type-section);
   font-weight: 500;
-  font-family: "IBM Plex Mono", monospace;
+  line-height: 1.3;
+}
+
+.empty,
+.note,
+.caption {
+  margin: 0;
+  max-width: 40rem;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: var(--type-caption);
+  line-height: 1.4;
+  color: var(--ink-quiet);
+  text-wrap: pretty;
 }
 
 .form {
   display: grid;
   grid-template-columns: minmax(0, 28rem);
-  gap: 0.85rem;
+  gap: 0.9rem;
   max-width: 100%;
 }
 
 .form label {
   display: grid;
-  gap: 0.28rem;
+  gap: 0.3rem;
 }
 
 .field-name {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.78rem;
+  font-size: var(--type-caption);
+  line-height: 1.3;
 }
 
 .form input,
 .form select,
-.form textarea {
+.form textarea,
+.form button {
   width: 100%;
-  padding: 0.4rem 0.5rem;
+  padding: 0.45rem 0.55rem;
   border: 1px solid var(--line);
   border-radius: 0;
   background: var(--paper);
   color: var(--ink);
   font: inherit;
+  font-size: var(--type-body);
 }
 
-.form .note {
-  margin: 0;
-  color: var(--ink-quiet);
+.form button {
+  width: auto;
+  font-family: "IBM Plex Sans", sans-serif;
 }
 
 .table-scroll {
@@ -115,21 +159,20 @@
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: var(--type-caption);
 }
 
 .data-table th {
-  padding: 0.4rem 0.7rem 0.4rem 0;
+  padding: 0.45rem 0.75rem 0.45rem 0;
   border-bottom: 1px solid var(--line);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.75rem;
+  font-size: var(--type-caption);
   font-weight: 400;
   text-align: left;
   white-space: nowrap;
 }
 
 .data-table td {
-  padding: 0.45rem 0.7rem 0.45rem 0;
+  padding: 0.5rem 0.75rem 0.5rem 0;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
@@ -140,16 +183,38 @@
 
 .metric-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 0.85rem 1.4rem;
   margin: 0 0 1rem;
   padding: 0;
   list-style: none;
+  font-size: var(--type-metric);
+  line-height: 1.2;
 }
 
 .metric-list li {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.78rem;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.status[data-status="PENDING"] {
+  color: var(--status-pending);
+}
+
+.status[data-status="RUNNING"] {
+  color: var(--status-running);
+}
+
+.status[data-status="COMPLETED"] {
+  color: var(--status-completed);
+}
+
+.status[data-status="FAILED"] {
+  color: var(--status-failed);
+}
+
+.status[data-status="CANCELLED"] {
+  color: var(--status-cancelled);
 }
 
 @media (max-width: 720px) {
@@ -158,13 +223,13 @@
   }
 
   .rail {
-    padding: 0.75rem 1rem 0.65rem;
+    padding: 0.85rem 1rem 0.7rem;
     border-right: 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--rail-line);
   }
 
-  .rail-name {
-    margin-bottom: 0.45rem;
+  .product-name {
+    margin-bottom: 0.5rem;
     padding: 0;
   }
 
@@ -185,7 +250,7 @@
   }
 
   .content {
-    padding: 1rem;
+    padding: 1.1rem 1rem 2rem;
   }
 
   .form {

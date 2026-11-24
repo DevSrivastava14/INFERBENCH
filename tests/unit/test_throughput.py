@@ -138,6 +138,34 @@ def test_zero_completed_requests_over_a_positive_window_returns_0() -> None:
     assert request_throughput_rps(run) == 0
 
 
+def test_cancelled_row_sets_the_request_throughput_window() -> None:
+    run = _run(
+        _row(client_start=1.0, client_end=5.0),
+        _row(
+            success=False,
+            error_type="CancelledError",
+            client_start=0.0,
+            client_end=10.0,
+            first_content_at=None,
+        ),
+    )
+
+    assert request_throughput_rps(run) == 0.1
+
+
+def test_generation_throughput_stays_unset_when_no_measured_row_qualifies() -> None:
+    run = _run(
+        _row(
+            success=False,
+            error_type="OllamaTimeoutError",
+            first_content_at=0.4,
+            eval_count=10,
+        )
+    )
+
+    assert generation_throughput_tps(run) is None
+
+
 def test_empty_measured_set_leaves_request_throughput_unset() -> None:
     run = BenchmarkRun(
         warmup=(_row(phase="warmup", client_start=-5.0, client_end=-1.0),),

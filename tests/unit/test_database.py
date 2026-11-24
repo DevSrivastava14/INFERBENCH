@@ -17,7 +17,7 @@ from sqlalchemy.pool import StaticPool
 from app.benchmark.records import BenchmarkRun, RequestRecord
 from app.database.models import Base
 from app.database.repository import load_experiment, load_experiments, save_experiment
-from app.metrics.statistics import AggregateSummary
+from app.metrics.statistics import AggregateSummary, summarize
 from app.monitoring.sampler import ResourceSample
 from app.monitoring.snapshot import ConfigurationSnapshot
 
@@ -149,6 +149,66 @@ def test_stored_summary_reloads_the_same_average_and_null_fields() -> None:
     assert loaded.summary == summary
     assert loaded.summary.average_ms == 12.5
     assert loaded.summary.p95_ms is None
+
+
+def test_mixed_run_reloads_the_failed_row_and_the_successful_rows() -> None:
+    success = RequestRecord(
+        phase="measured",
+        model="gemma3:1b",
+        prompt="Hi",
+        num_predict=8,
+        client_start=2.0,
+        first_content_at=2.2,
+        client_end=2.5,
+        end_to_end_ms=100.0,
+        success=True,
+        error_type=None,
+        eval_count=4,
+        prompt_eval_count=2,
+        prompt_eval_duration=10,
+        eval_duration=20,
+    )
+    run = BenchmarkRun(
+        warmup=(),
+        measured=(_measured(), success),
+        concurrency=1,
+    )
+    stored = AggregateSummary(
+        average_ms=12.5,
+        median_ms=None,
+        p50_ms=None,
+        p95_ms=None,
+        p99_ms=None,
+        error_rate=None,
+        generation_throughput_tps=None,
+        request_throughput_rps=None,
+    )
+    assert summarize(run).average_ms == 100.0
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, run, _snapshot(), stored)
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiment(session, experiment_id)
+
+    assert loaded.measured[0].success is False
+    assert loaded.measured[0].error_type == "OllamaTimeoutError"
+    assert loaded.measured[1].success is True
+    assert loaded.summary == stored
+    assert loaded.summary.average_ms == 12.5
+    assert loaded.summary.average_ms != summarize(run).average_ms
+
+
+def test_stored_sampling_error_loads_back() -> None:
+    run = replace(_run(), sampling_error="RuntimeError")
+    engine = _engine()
+    with Session(engine) as session:
+        experiment_id = save_experiment(session, run, _snapshot())
+        session.commit()
+    with Session(engine) as session:
+        loaded = load_experiment(session, experiment_id)
+
+    assert loaded.sampling_error == "RuntimeError"
 
 
 def test_missing_profile_name_loads_back_as_null() -> None:

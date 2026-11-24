@@ -30,6 +30,11 @@ test("starts empty and does not fetch", () => {
   expect(screen.getByLabelText("candidate source")).toBeTruthy();
   expect(screen.getByLabelText("candidate id")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Compare" })).toBeTruthy();
+  expect(
+    screen.getByText(
+      "The delta is the candidate's stored aggregate minus the baseline's stored aggregate. This page does not rank one experiment above the other.",
+    ),
+  ).toBeTruthy();
   expect(screen.getByText("Nothing is loaded.")).toBeTruthy();
   expect(document.body.textContent).not.toMatch(forbidden);
   expect(fetchSpy).not.toHaveBeenCalled();

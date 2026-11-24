@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { jobRequestBody, loadJob, startJob } from "../services/experiments.js";
+import { benchmarkControls, benchmarkFields, ledes } from "../copy.js";
+import { cancelJob, jobRequestBody, loadJob, startJob } from "../services/experiments.js";
 
 const profiles = [
   "short_prompt_short_output",
@@ -49,6 +50,20 @@ export function Benchmark() {
     };
   }, [jobId, jobStatus]);
 
+  function onCancel() {
+    if (!jobId) {
+      return;
+    }
+    cancelJob(jobId).then(
+      (next) => {
+        setJob(next);
+      },
+      () => {
+        setFailed(true);
+      },
+    );
+  }
+
   function onSubmit(event) {
     event.preventDefault();
     setFailed(false);
@@ -77,22 +92,22 @@ export function Benchmark() {
 
   const sample = job && job.latest_sample ? job.latest_sample : null;
 
+  const canCancel = jobStatus === "PENDING" || jobStatus === "RUNNING";
+
   return (
     <form className="form" onSubmit={onSubmit}>
-      <label>
-        <span className="field-name">model</span>
+      <p className="lede">{ledes.benchmark}</p>
+      <Field name="model" sentence={benchmarkFields.model}>
         <input value={model} onChange={(event) => setModel(event.target.value)} />
-      </label>
-      <label>
-        <span className="field-name">prompt</span>
+      </Field>
+      <Field name="prompt" sentence={benchmarkFields.prompt}>
         <textarea
           rows={4}
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
         />
-      </label>
-      <label>
-        <span className="field-name">profile name</span>
+      </Field>
+      <Field name="profile name" sentence={benchmarkFields["profile name"]}>
         <select
           value={profileName}
           onChange={(event) => setProfileName(event.target.value)}
@@ -104,51 +119,50 @@ export function Benchmark() {
             </option>
           ))}
         </select>
-      </label>
-      <label>
-        <span className="field-name">num_predict</span>
+      </Field>
+      <Field name="num_predict" sentence={benchmarkFields.num_predict}>
         <input
           value={numPredict}
           onChange={(event) => setNumPredict(event.target.value)}
         />
-      </label>
-      <label>
-        <span className="field-name">warm-up count</span>
+      </Field>
+      <Field name="warm-up count" sentence={benchmarkFields["warm-up count"]}>
         <input
           value={warmupCount}
           onChange={(event) => setWarmupCount(event.target.value)}
         />
-      </label>
-      <label>
-        <span className="field-name">measured count</span>
+      </Field>
+      <Field name="measured count" sentence={benchmarkFields["measured count"]}>
         <input
           value={measuredCount}
           onChange={(event) => setMeasuredCount(event.target.value)}
         />
-      </label>
-      <label>
-        <span className="field-name">concurrency</span>
+      </Field>
+      <Field name="concurrency" sentence={benchmarkFields.concurrency}>
         <input
           value={concurrency}
           onChange={(event) => setConcurrency(event.target.value)}
         />
-      </label>
-      <label>
-        <span className="field-name">think</span>
+      </Field>
+      <Field name="think" sentence={benchmarkFields.think}>
         <select value={think} onChange={(event) => setThink(event.target.value)}>
           <option value="">omitted</option>
           <option value="false">false</option>
         </select>
-      </label>
-      <label>
-        <span className="field-name">num_thread</span>
+      </Field>
+      <Field name="num_thread" sentence={benchmarkFields.num_thread}>
         <input
           value={numThread}
           onChange={(event) => setNumThread(event.target.value)}
         />
-      </label>
-      <p className="note">Streaming is the benchmark path the runner already uses.</p>
+      </Field>
+      <p className="note">{benchmarkControls.streaming}</p>
       <button type="submit">Run</button>
+      <p className="caption">{benchmarkControls.run}</p>
+      <button type="button" onClick={onCancel} disabled={!canCancel}>
+        Cancel
+      </button>
+      <p className="caption">{benchmarkControls.cancel}</p>
       {failed ? <p className="empty">The load failed.</p> : null}
       {job ? (
         <>
@@ -168,5 +182,17 @@ export function Benchmark() {
         </>
       ) : null}
     </form>
+  );
+}
+
+function Field({ name, sentence, children }) {
+  return (
+    <div>
+      <label>
+        <span className="field-name">{name}</span>
+        {children}
+      </label>
+      <p className="caption">{sentence}</p>
+    </div>
   );
 }

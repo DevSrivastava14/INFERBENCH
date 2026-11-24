@@ -1,16 +1,32 @@
 :root {
-  --paper: #f3f2ef;
-  --ink: #1c1c1c;
-  --accent: #3e5852;
-  --rail-width: 13.5rem;
-  --line: color-mix(in srgb, var(--ink) 14%, transparent);
-  --ink-quiet: color-mix(in srgb, var(--ink) 72%, transparent);
-  --grid: color-mix(in srgb, var(--ink) 12%, transparent);
+  --paper: #e4ebe7;
+  --ink: #1c1b19;
+  --ink-quiet: #5e5a54;
+  --line: #c5d0ca;
+  --grid: #d5dfd9;
+  --rail: #1b2421;
+  --rail-ink: #e6e2d8;
+  --rail-line: #3a4440;
+  --accent: #b08958;
+  --status-pending: #6b645b;
+  --status-running: #3e5f73;
+  --status-completed: #3c6248;
+  --status-failed: #7c453c;
+  --status-cancelled: #5e5a56;
+  --type-product: 1.125rem;
+  --type-page-title: 2rem;
+  --type-lede: 1.125rem;
+  --type-section: 1rem;
+  --type-body: 1rem;
+  --type-caption: 0.8125rem;
+  --type-metric: 1.5rem;
+  --rail-width: 15rem;
   font-family: "IBM Plex Sans", sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.5;
   color: var(--ink);
   background: var(--paper);
-  font-size: 15px;
-  line-height: 1.45;
   accent-color: var(--accent);
 }
 
@@ -25,6 +41,7 @@ body {
   min-height: 100vh;
   background: var(--paper);
   color: var(--ink);
+  font-size: var(--type-body);
 }
 
 #root {
@@ -36,6 +53,10 @@ body {
   outline-offset: 2px;
 }
 
-.mono {
+.mono,
+.field-name,
+.metric-list,
+.data-table th,
+.data-table td {
   font-family: "IBM Plex Mono", monospace;
 }
