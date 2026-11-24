@@ -166,7 +166,9 @@ export function Benchmark() {
       {failed ? <p className="empty">The load failed.</p> : null}
       {job ? (
         <>
-          <p className="note">{job.job_status}</p>
+          <p className="status" data-status={job.job_status}>
+            {job.job_status}
+          </p>
           {job.succeeded_count !== undefined && job.succeeded_count !== null ? (
             <p className="note">succeeded {job.succeeded_count}</p>
           ) : null}

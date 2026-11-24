@@ -154,12 +154,67 @@
 .table-scroll {
   overflow-x: auto;
   max-width: 100%;
+  overscroll-behavior-x: contain;
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--type-caption);
+}
+
+.history-rail {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  max-width: 100%;
+  height: 16px;
+  margin-bottom: 0.35rem;
+  background: var(--paper);
+  overscroll-behavior-x: contain;
+}
+
+.history-rail-inner {
+  width: 155rem;
+  height: 1px;
+}
+
+.history-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.history-table {
+  width: 155rem;
+  min-width: 155rem;
+  table-layout: fixed;
+}
+
+.history-table .col-source { width: 11rem; }
+.history-table .col-id { width: 11rem; }
+.history-table .col-model { width: 11rem; }
+.history-table .col-profile_name { width: 14rem; }
+.history-table .col-prompt { width: 16rem; }
+.history-table .col-num_predict { width: 14rem; }
+.history-table .col-warmup_count { width: 14rem; }
+.history-table .col-measured_count { width: 12rem; }
+.history-table .col-concurrency { width: 12rem; }
+.history-table .col-think { width: 13rem; }
+.history-table .col-num_thread { width: 14rem; }
+.history-table .col-job_status { width: 13rem; }
+
+.history-table th,
+.history-table td {
+  overflow-wrap: break-word;
+}
+
+.history-table th .caption {
+  display: block;
+  max-width: none;
+  margin-top: 0.25rem;
+  white-space: normal;
 }
 
 .data-table th {

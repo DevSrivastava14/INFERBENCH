@@ -77,7 +77,7 @@ Measurement duration is the client-observed length of the measured window, in se
 
 | | |
 |---|---|
-| Formula | Percentiles of the client-observed latency sample. P50 is the middle. P95 is the value at which about 95 percent of requests were faster. P99 is the value at which about 99 percent were faster. |
+| Formula | Nearest-rank percentiles of the client-observed latency sample. P50, P95, and P99 are the observations at ranks `ceil(50 * n / 100)`, `ceil(95 * n / 100)`, and `ceil(99 * n / 100)`. P50 is that ranked observation. It is not the ordinary middle when that rank differs from the median. |
 | Unit | milliseconds, the same unit as the latency sample |
 | Clock | Client-observed |
 
