@@ -7,6 +7,7 @@ leaves the four result files read-only.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import time
 from collections.abc import Callable, Mapping
@@ -83,9 +84,40 @@ def create_production_app() -> FastAPI:
     )
 
 
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8000
+
+
+def listen_settings(environ: Mapping[str, str] | None = None) -> tuple[str, int]:
+    """Return the listen host and port.
+
+    An absent or blank ``INFERBENCH_HOST`` keeps ``127.0.0.1``. An absent or
+    blank ``INFERBENCH_PORT`` keeps ``8000``. The container is the caller that
+    sets the host to ``0.0.0.0``.
+    """
+
+    env = os.environ if environ is None else environ
+    host = env.get("INFERBENCH_HOST")
+    if host is None or not host.strip():
+        host = DEFAULT_HOST
+    else:
+        host = host.strip()
+    raw_port = env.get("INFERBENCH_PORT")
+    if raw_port is None or not str(raw_port).strip():
+        port = DEFAULT_PORT
+    else:
+        port = int(str(raw_port).strip())
+    return host, port
+
+
 def main() -> None:
     """Listen on the local port the dashboard proxies to."""
 
     import uvicorn
 
-    uvicorn.run(create_production_app(), host="127.0.0.1", port=8000)
+    host, port = listen_settings()
+    uvicorn.run(create_production_app(), host=host, port=port)
+
+
+if __name__ == "__main__":
+    main()

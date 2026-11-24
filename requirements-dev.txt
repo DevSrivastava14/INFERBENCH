@@ -1,2 +1,2 @@
-pytest
-pytest-asyncio
+pytest==8.4.2
+pytest-asyncio==1.4.0

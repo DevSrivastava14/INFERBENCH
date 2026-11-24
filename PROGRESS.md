@@ -784,4 +784,59 @@ Notes that are not open problems: the five job-status colors are in the styleshe
 
 Day 17: Docker, CI, and reproducibility. Do not treat a dashboard payload, the fixture series 100, 110, and 120, a stored fallback count of 0, or a figure in an existing findings file as a new benchmark result. Thinking on versus off, concurrency 8, `num_ctx`, a same-model quantization run, CSV and JSON export, and procedure step 9 stay later.
 
+## 2026-11-24 — Day 17: Docker, CI, and reproducibility
+
+### Five-line summary
+
+Day 17 pins the libraries already on this machine, packs the API and the dashboard into Compose, and lists the existing checks in GitHub Actions. Nothing from earlier days failed, so there is no fix-first work. Ollama stays on the host that already has the models, and the containers do not download one. Pytest and the frontend tests use the same fakes as Day 16, and a built image is not a measured latency. The workflow file is in the tree. It has not run on GitHub yet.
+
+### Completed
+
+- Pinned the versions already installed. `requirements.txt` pins httpx 0.28.1, psutil 7.2.2, sqlalchemy 2.0.43, fastapi 0.141.1, and uvicorn 0.52.4. `requirements-dev.txt` pins pytest 8.4.2 and pytest-asyncio 1.4.0. No package was upgraded on this machine. The API image installs `requirements.txt` only.
+- `app/main.py` reads `INFERBENCH_HOST` and `INFERBENCH_PORT`. An absent or blank variable keeps `127.0.0.1` and `8000`. `.env.example` shows those defaults, and `OLLAMA_HOST` as `http://127.0.0.1:11434`. The container is the caller that sets the host to `0.0.0.0`. The laptop default stays `127.0.0.1`. The root `.gitignore` ignores `.env`, virtualenvs, `__pycache__`, and frontend build output. It does not ignore `experiments/results/*.sqlite` or `.env.example`.
+- Added the API image from `python:3.13-slim` and the dashboard image. The dashboard image runs `npm ci` from the lockfile on Node 24.19.0, and Nginx serves the production build and proxies `/api` to the `api` service. The browser still uses relative `/api` URLs. The Vite dev proxy stays `http://127.0.0.1:8000`.
+- `docker-compose.yml` starts `api` and `web` only. `OLLAMA_HOST` for `api` is `http://host.docker.internal:11434`. Compose adds `host-gateway`. `experiments/results` is a mount, so `dashboard.sqlite` persists on the host and the four older result files stay there. `.dockerignore` keeps those SQLite files out of the build. A missing result file is still not created. There is no Ollama service and no model pull. The API publishes host port 8000. The dashboard publishes host port 8080.
+- Added `.github/workflows/ci.yml` with three jobs and no secrets. Python 3.13 installs both requirements files and runs `python -m pytest`. Node 24.19.0, in `frontend/`, runs `npm ci`, `npm test`, and `npm run build`. The image job runs `docker compose build`. It does not start the stack and it does not contact Ollama.
+- Updated `docs/environment.md`, `docs/architecture.md`, and `docs/methodology.md`. Day 17 adds no procedure step, does not rerun step 12, and does not repeat an experiment for variance. The text does not name a winner. Step 9 still waits. A container is not a latency. The formulas stay as Day 6 wrote them. `docs/metrics.md` was not edited. The percentile formula cell still says "P50 is the middle." The timeout stays 120 seconds. `think` true is still rejected.
+
+### Files changed
+
+- `requirements.txt` (updated)
+- `requirements-dev.txt` (updated)
+- `app/main.py` (updated)
+- `.env.example` (added)
+- `.gitignore` (added)
+- `docs/environment.md` (updated)
+- `docs/architecture.md` (updated)
+- `docs/methodology.md` (updated)
+- `Dockerfile` (added)
+- `frontend/Dockerfile` (added)
+- `frontend/nginx.conf` (added)
+- `docker-compose.yml` (added)
+- `.dockerignore` (added)
+- `.github/workflows/ci.yml` (added)
+- `tests/unit/test_listen.py` (added)
+
+### Test results
+
+`python -m pytest`: 172 passed in 7.29s. Five tests are new. The earlier 167 still pass. The run uses a mapping for the listen address, the workflow file, a fake adapter, a fake clock, and a temporary database. It does not contact Ollama. No test asserts a latency number from a live server. Pytest does not read a findings file for an expected timing.
+
+`npm test`: 20 passed. The chart test sees 100, 110, and 120. The Results page render with no selected experiment does not include that series. Overview, history, the configuration form, Comparisons, and Routing render from mocked `fetch` payloads. Frontend tests do not read a findings file.
+
+`npm run build` succeeded. The CSS is 11.28 kB. The script chunk is 704.04 kB because Recharts is included. The build exits 0.
+
+`docker compose config` is valid. `docker compose build` exited 0. Both images built. That exit is a build check. It is not a measurement. The stack was not started.
+
+### Problems
+
+None left open.
+
+The first `npm test`, started at the same time as pytest, failed two tests at the 5-second limit: `the landing states the purpose and then opens Overview` and `the rail links Comparisons and Routing`. Both raised `TestTimeoutError`. The pages and those tests were not edited. `npm test` was run again by itself and passed 20 tests. `npm run build` was then run and exited 0.
+
+Notes that are not open problems: the `python:3.13-slim` tag contains Python 3.13.18. This laptop's interpreter stays 3.13.5. Compose publishes the dashboard on host port 8080, which `TODAY.md` does not name, and publishes the API on host port 8000, which is also the local server's port. The workflow has not run on GitHub. No running container was asked to serve a page or proxy `/api`. The new tests pass a mapping and read the workflow file. They do not use a fake adapter, a fake clock, or a temporary database, because this code does not run a benchmark. `LEARN.md` and `docs/day1-check.md` were already modified in the working tree. They were not edited today, and they do not hold a figure from a findings file. Day 2 through Day 16 notes were left as notes.
+
+### Next steps
+
+Day 18: documentation and final validation. The README stays on that day. Do not treat a built image, or a green CI log, as a benchmark result. Thinking on versus off, concurrency 8, `num_ctx`, a same-model quantization run, CSV and JSON export, and procedure step 9 stay later.
+
 

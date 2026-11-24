@@ -1,5 +1,5 @@
-httpx
-psutil
-sqlalchemy
-fastapi
-uvicorn
+httpx==0.28.1
+psutil==7.2.2
+sqlalchemy==2.0.43
+fastapi==0.141.1
+uvicorn==0.52.4
