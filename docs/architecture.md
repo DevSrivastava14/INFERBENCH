@@ -12,6 +12,8 @@ Day 16 locks failure cases with fakes. It adds no procedure step, does not rerun
 
 Day 17 pins the libraries already installed and reads `INFERBENCH_HOST` and `INFERBENCH_PORT` in `app/main.py`. An absent or blank variable keeps `127.0.0.1` and `8000`. The container is the caller that sets `INFERBENCH_HOST` to `0.0.0.0`. The laptop default stays `127.0.0.1`. It adds no procedure step, does not rerun step 12, and does not repeat an experiment for variance. The text does not name a winner. Step 9 still waits. A container is not a latency. The latency, throughput, percentile, and error-rate formulas stay as Day 6 wrote them.
 
+Day 18 adds no procedure step, does not rerun step 12, and does not repeat an experiment for variance. The text does not name a winner. Step 9 still waits. A document is not a latency. The latency, throughput, percentile, and error-rate formulas stay as Day 6 wrote them.
+
 ```text
 React dashboard
       |

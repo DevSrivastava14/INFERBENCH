@@ -3,3 +3,12 @@
 venv/
 __pycache__/
 frontend/dist/
+PLAN.md
+PROGRESS.md
+TODAY.md
+LEARN.md
+PRODUCT.md
+.cursor/
+.impeccable/
+docs/day1-check.md
+docs/day1-concepts.md
